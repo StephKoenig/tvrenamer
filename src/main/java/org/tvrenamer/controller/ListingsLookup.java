@@ -59,7 +59,7 @@ public class ListingsLookup {
         }
         Callable<Boolean> listingsFetcher = () -> {
             try {
-                TheTVDBProvider.getSeriesListing(series);
+                TvdbProviders.current().getSeriesListing(series);
                 return true;
             } catch (TVRenamerIOException e) {
                 series.listingsFailed(e);

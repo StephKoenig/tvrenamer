@@ -26,6 +26,8 @@ final class ThemePalette {
     private final Color tableHeaderBackground;
     private final Color tableHeaderForeground;
     private final Color tableRowAlternate;
+    private final Color validationSuccessBackground;
+    private final Color validationErrorBackground;
 
     ThemePalette(Display display, ThemeMode mode) {
         this.display = display;
@@ -42,6 +44,13 @@ final class ThemePalette {
             // Increase zebra striping contrast in dark mode: alternate rows should be
             // noticeably different from the base table background, but still subtle.
             tableRowAlternate = createColor(new RGB(58, 58, 58));
+
+            // Subtle validation tints. In dark mode these stay dark (just hue-shifted
+            // toward green/red) so the existing near-white controlForeground text
+            // remains readable on top of them -- a pale tint here would put light
+            // text on a light background.
+            validationSuccessBackground = createColor(new RGB(30, 60, 30));
+            validationErrorBackground = createColor(new RGB(70, 32, 32));
         } else {
             shellBackground = createColor(new RGB(245, 245, 245));
             shellForeground = createColor(new RGB(32, 32, 32));
@@ -51,6 +60,11 @@ final class ThemePalette {
             tableHeaderBackground = createColor(new RGB(232, 232, 232));
             tableHeaderForeground = controlForeground;
             tableRowAlternate = createColor(new RGB(248, 248, 248));
+
+            // Subtle validation tints. In light mode these stay pale so the existing
+            // near-black controlForeground text remains readable on top of them.
+            validationSuccessBackground = createColor(new RGB(226, 246, 226));
+            validationErrorBackground = createColor(new RGB(250, 227, 227));
         }
 
         display.disposeExec(this::dispose);
@@ -94,6 +108,24 @@ final class ThemePalette {
 
     Color getTableRowAlternate() {
         return tableRowAlternate;
+    }
+
+    /**
+     * Subtle "success" background tint (green-leaning) used for at-a-glance validation
+     * feedback (e.g. the TheTVDB v4 API key field after it validates successfully).
+     * Chosen per-theme so the existing {@link #getControlForeground()} text stays readable.
+     */
+    Color getValidationSuccessBackground() {
+        return validationSuccessBackground;
+    }
+
+    /**
+     * Subtle "error" background tint (red-leaning) used for at-a-glance validation
+     * feedback (e.g. the TheTVDB v4 API key field after validation fails).
+     * Chosen per-theme so the existing {@link #getControlForeground()} text stays readable.
+     */
+    Color getValidationErrorBackground() {
+        return validationErrorBackground;
     }
 
     /**

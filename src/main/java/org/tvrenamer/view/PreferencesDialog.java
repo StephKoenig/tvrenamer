@@ -41,12 +41,15 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
-import org.tvrenamer.controller.TheTVDBProvider;
+import org.tvrenamer.controller.TvdbProviders;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages.Language;
 import org.tvrenamer.controller.subtitle.SubtitleMergeController;
+import org.tvrenamer.controller.tvdb.JdkHttpTransport;
+import org.tvrenamer.controller.tvdb.TvdbV4Client;
 import org.tvrenamer.controller.util.FileUtilities;
 import org.tvrenamer.controller.util.StringUtils;
+import org.tvrenamer.model.EpisodeDataProviderType;
 import org.tvrenamer.model.ReplacementToken;
 import org.tvrenamer.model.ShowName;
 import org.tvrenamer.model.ShowOption;
@@ -243,6 +246,12 @@ class PreferencesDialog extends Dialog {
     private Combo themeModeCombo;
     private Button preferDvdOrderCheckbox;
     private ThemePalette themePalette;
+
+    // TV data provider selection (v1 vs. v4) + v4 API key validation.
+    private Combo providerCombo;
+    private Text tvdbV4KeyText;
+    private Button tvdbV4ValidateButton;
+    private Label tvdbV4ValidateStatus;
 
     // Matching (Overrides + Disambiguations)
     // Overrides (Extracted show -> replacement show text)
@@ -817,6 +826,27 @@ class PreferencesDialog extends Dialog {
             GridData.BEGINNING,
             3
         );
+
+        createLabel(PROVIDER_LABEL_TEXT, PROVIDER_TOOLTIP, generalGroup);
+        providerCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
+        providerCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
+        providerCombo.setToolTipText(PROVIDER_TOOLTIP);
+        for (EpisodeDataProviderType t : EpisodeDataProviderType.values()) {
+            providerCombo.add(t.toString());
+        }
+
+        createLabel(TVDB_V4_KEY_LABEL_TEXT, TVDB_V4_KEY_TOOLTIP, generalGroup);
+        tvdbV4KeyText = createText(prefs.getTvdbV4ApiKey(), generalGroup, false);
+        tvdbV4ValidateButton = new Button(generalGroup, SWT.PUSH);
+        tvdbV4ValidateButton.setText(TVDB_V4_VALIDATE_BUTTON_TEXT);
+
+        tvdbV4ValidateStatus = new Label(generalGroup, SWT.NONE);
+        tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1));
+
+        tvdbV4ValidateButton.addListener(SWT.Selection, e -> validateTvdbV4KeyOnline());
+        // The user editing the key invalidates any prior green/red validation tint.
+        tvdbV4KeyText.addListener(SWT.Modify, e -> resetTvdbV4KeyValidationTint());
+        providerCombo.addListener(SWT.Selection, e -> updateProviderControlsEnabled());
     }
 
     private void initializeGeneralControls() {
@@ -858,7 +888,44 @@ class PreferencesDialog extends Dialog {
             themeModeCombo.select(0);
         }
 
+        int provIdx = providerCombo.indexOf(prefs.getEpisodeDataProvider().toString());
+        providerCombo.select(provIdx >= 0 ? provIdx : 0);
+        updateProviderControlsEnabled();
+
         initializeSubtitleControls();
+    }
+
+    private void updateProviderControlsEnabled() {
+        boolean v4 = EpisodeDataProviderType.TVDB_V4.toString()
+            .equals(providerCombo.getText());
+        tvdbV4KeyText.setEnabled(v4);
+        tvdbV4ValidateButton.setEnabled(v4);
+        // Switching providers makes any prior validation result stale.
+        resetTvdbV4KeyValidationTint();
+    }
+
+    /**
+     * Clears any green/red validation tint previously applied to the v4 API-key text
+     * field, restoring it to the normal themed control background. Called when a new
+     * validation starts, when the user edits the key text, and when the provider
+     * selection changes -- any of which makes a prior validation result stale.
+     *
+     * <p>Only ever touches the widget's background; never allocates a new
+     * {@link org.eclipse.swt.graphics.Color}. The two tint colours themselves are owned
+     * and disposed by {@link #themePalette} (see {@link ThemePalette#dispose()}), the
+     * same mechanism already used for every other themed colour in this dialog.
+     */
+    private void resetTvdbV4KeyValidationTint() {
+        if (tvdbV4KeyText == null || tvdbV4KeyText.isDisposed()) {
+            return;
+        }
+        if (themePalette != null) {
+            tvdbV4KeyText.setBackground(themePalette.getControlBackground());
+        } else {
+            // Defensive fallback; themePalette is set before this dialog's controls
+            // are created, so in practice this branch should not be reachable.
+            tvdbV4KeyText.setBackground(null);
+        }
     }
 
     /**
@@ -2055,6 +2122,12 @@ class PreferencesDialog extends Dialog {
         }
         prefs.setThemeMode(selectedTheme);
 
+        EpisodeDataProviderType provider =
+            EpisodeDataProviderType.fromString(providerCombo.getText());
+        prefs.setEpisodeDataProvider(
+            provider == null ? EpisodeDataProviderType.TVDB_V1 : provider);
+        prefs.setTvdbV4ApiKey(tvdbV4KeyText.getText());
+
         // Show name overrides (exact match, case-insensitive)
         // Note: column 0 is the status icon column; values are in columns 1 and 2.
         Map<String, String> overrides = new LinkedHashMap<>();
@@ -2257,6 +2330,56 @@ class PreferencesDialog extends Dialog {
         validateThread.start();
     }
 
+    private void validateTvdbV4KeyOnline() {
+        // A new validation run makes any prior green/red tint stale.
+        resetTvdbV4KeyValidationTint();
+        final String key = tvdbV4KeyText.getText().trim();
+        if (key.isEmpty()) {
+            tvdbV4ValidateStatus.setText("Enter an API key first.");
+            return;
+        }
+        tvdbV4ValidateStatus.setText("Validating…");
+        Thread th = new Thread(() -> {
+            boolean ok;
+            String msg;
+            try {
+                TvdbV4Client c = new TvdbV4Client(new JdkHttpTransport(), () -> key);
+                // A successful search implies login succeeded.
+                c.searchSeriesJson("test");
+                ok = true;
+                msg = "API key is valid.";
+            } catch (Exception ex) {
+                ok = false;
+                msg = "Validation failed: " + ex.getMessage();
+            }
+            final boolean fOk = ok;
+            final String fMsg = msg;
+            Display display = (preferencesShell != null)
+                ? preferencesShell.getDisplay() : Display.getDefault();
+            if (display == null || display.isDisposed()) {
+                return;
+            }
+            display.asyncExec(() -> {
+                if (tvdbV4ValidateStatus.isDisposed()) {
+                    return;
+                }
+                tvdbV4ValidateStatus.setText((fOk ? "✓ " : "✗ ") + fMsg);
+                // Additive at-a-glance cue: tint the key field itself. Only ever
+                // reuses the pre-created, theme-appropriate Colors owned by
+                // themePalette -- never allocates a new Color here.
+                if (!tvdbV4KeyText.isDisposed() && themePalette != null) {
+                    tvdbV4KeyText.setBackground(
+                        fOk
+                            ? themePalette.getValidationSuccessBackground()
+                            : themePalette.getValidationErrorBackground()
+                    );
+                }
+            });
+        }, "tvrenamer-v4-validate");
+        th.setDaemon(true);
+        th.start();
+    }
+
     private static final class ValidationResult {
 
         final boolean valid;
@@ -2288,7 +2411,7 @@ class PreferencesDialog extends Dialog {
 
             ShowName sn = ShowName.mapShowName(queryString);
             try {
-                TheTVDBProvider.getShowOptions(sn);
+                TvdbProviders.current().getShowOptions(sn);
             } catch (Exception e) {
                 return ValidationResult.invalid(
                     "Cannot validate (provider unavailable)"
@@ -2317,7 +2440,7 @@ class PreferencesDialog extends Dialog {
 
         ShowName sn = ShowName.mapShowName(replacementText);
         try {
-            TheTVDBProvider.getShowOptions(sn);
+            TvdbProviders.current().getShowOptions(sn);
         } catch (Exception e) {
             return ValidationResult.invalid(
                 "Cannot validate (provider unavailable)"

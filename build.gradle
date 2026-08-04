@@ -74,6 +74,9 @@ dependencies {
         transitive = false
     }
 
+    // JSON parsing for the TheTVDB v4 provider
+    implementation libs.gson
+
     // XML persistence and HTTP use JDK built-in APIs (javax.xml, java.net.http)
 
     // Testing

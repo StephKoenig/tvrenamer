@@ -51,6 +51,13 @@ The screenshot currently references the upstream wiki:
  * **Fuzzy episode matching**: Detects files like "S01E02" vs "1x02" as the same episode for conflict detection and duplicate cleanup
  * **Parse failure diagnostics**: When files can't be parsed, shows specific reasons (no show name, no season/episode pattern, etc.) with a summary dialog after batch processing
 
+### Data providers
+TVRenamer looks up shows and episodes via a selectable provider (Preferences → General → **TV data provider**):
+ * **TheTVDB (v1)** - the default. Keyless, no setup required.
+ * **TheTVDB (v4)** - an alternative provider. Requires a personal API key (free, from [thetvdb.com](https://thetvdb.com/)) pasted into Preferences, with a **Validate** button to confirm it works before saving.
+
+If a show you know exists consistently returns "No info", the active provider's search may be temporarily degraded — try switching providers in Preferences rather than assuming the show is missing.
+
 ## Usage & Download
 
 > ## Please Note (Windows EXE)

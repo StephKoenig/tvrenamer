@@ -1668,6 +1668,29 @@ public final class ResultsTable
      * @param selector chooses which episodes to re-match
      */
     private void rematchRows(final java.util.function.Predicate<FileEpisode> selector) {
+        rematchRows(selector, false);
+    }
+
+    /**
+     * As {@link #rematchRows(java.util.function.Predicate)}, but optionally
+     * forgets any cached FAILED lookup for each re-matched row before querying.
+     *
+     * This is required by the provider-switch path: the normalized query string
+     * is unchanged by a provider switch, so the previous provider's cached
+     * failure would otherwise short-circuit {@link ShowStore#mapStringToShow}
+     * and the new provider would never be consulted.  Successful matches are
+     * never forgotten, so this is safe to enable only where a genuine re-query
+     * is intended.  The override-driven path leaves this off because a changed
+     * override yields a different query string with no stale cached failure.
+     *
+     * @param selector chooses which episodes to re-match
+     * @param forgetCachedFailures when true, discard a cached failed lookup for
+     *     each re-matched row so the current provider is queried afresh
+     */
+    private void rematchRows(
+        final java.util.function.Predicate<FileEpisode> selector,
+        final boolean forgetCachedFailures
+    ) {
         if (swtTable.isDisposed()) {
             return;
         }
@@ -1695,6 +1718,12 @@ public final class ResultsTable
             final String newName = prefs.resolveShowName(extractedName);
             ep.setFilenameShow(newName);
             ShowName.mapShowName(newName);
+            // When retrying after a provider switch, drop any cached failure for
+            // this exact (override-applied) name so mapStringToShow queries the
+            // now-current provider instead of replaying the old failure.
+            if (forgetCachedFailures) {
+                ShowStore.forgetFailedLookup(newName);
+            }
             STATUS_FIELD.setCellImage(item, DOWNLOADING);
 
             ShowStore.mapStringToShow(
@@ -1791,6 +1820,13 @@ public final class ResultsTable
                     rematchRows(ep -> ep.rematchWouldChangeResult(prefs));
                 }
                 break;
+            case EPISODE_DATA_PROVIDER:
+                // Switching providers: retry rows that failed under the old
+                // provider. Forget each row's cached failure first so the new
+                // provider is actually queried (the query string is unchanged by
+                // the switch, so the old cached failure would otherwise win).
+                rematchRows(FileEpisode::isShowUnfound, true);
+                break;
             case IGNORE_REGEX:
             case PRELOAD_FOLDER:
             case ADD_SUBDIRS:
@@ -1802,6 +1838,7 @@ public final class ResultsTable
             case OVERWRITE_DESTINATION:
             case CLEANUP_DUPLICATES:
             case TAG_VIDEO_METADATA:
+            case TVDB_V4_API_KEY:
                 // These changes don't require an immediate table update here
                 break;
         }

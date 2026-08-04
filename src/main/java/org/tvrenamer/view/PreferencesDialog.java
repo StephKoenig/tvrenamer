@@ -841,7 +841,11 @@ class PreferencesDialog extends Dialog {
         tvdbV4ValidateButton.setText(TVDB_V4_VALIDATE_BUTTON_TEXT);
 
         tvdbV4ValidateStatus = new Label(generalGroup, SWT.NONE);
-        tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1));
+        // FILL (not BEGINNING) so the label occupies the row width even though it is
+        // created empty; otherwise GridLayout sizes it to its ~0-width empty preferred
+        // size at open time and a message set later by setText(...) is clipped to nothing.
+        tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1));
+        ThemeManager.applyPalette(tvdbV4ValidateStatus, themePalette);
 
         tvdbV4ValidateButton.addListener(SWT.Selection, e -> validateTvdbV4KeyOnline());
         // The user editing the key invalidates any prior green/red validation tint.
@@ -915,6 +919,22 @@ class PreferencesDialog extends Dialog {
      * and disposed by {@link #themePalette} (see {@link ThemePalette#dispose()}), the
      * same mechanism already used for every other themed colour in this dialog.
      */
+    /**
+     * Set the v4 validation status label's text and re-layout its row, so a message
+     * set after the dialog was first laid out is not clipped (the label is created
+     * empty). Mirrors the dynamic relayout in {@link #updateRenameFormatPreview()}.
+     */
+    private void setTvdbV4ValidateStatus(String text) {
+        if (tvdbV4ValidateStatus == null || tvdbV4ValidateStatus.isDisposed()) {
+            return;
+        }
+        tvdbV4ValidateStatus.setText(text);
+        Composite parent = tvdbV4ValidateStatus.getParent();
+        if (parent != null && !parent.isDisposed()) {
+            parent.layout(true);
+        }
+    }
+
     private void resetTvdbV4KeyValidationTint() {
         if (tvdbV4KeyText == null || tvdbV4KeyText.isDisposed()) {
             return;
@@ -2335,10 +2355,10 @@ class PreferencesDialog extends Dialog {
         resetTvdbV4KeyValidationTint();
         final String key = tvdbV4KeyText.getText().trim();
         if (key.isEmpty()) {
-            tvdbV4ValidateStatus.setText("Enter an API key first.");
+            setTvdbV4ValidateStatus("Enter an API key first.");
             return;
         }
-        tvdbV4ValidateStatus.setText("Validating…");
+        setTvdbV4ValidateStatus("Validating…");
         Thread th = new Thread(() -> {
             boolean ok;
             String msg;
@@ -2363,7 +2383,7 @@ class PreferencesDialog extends Dialog {
                 if (tvdbV4ValidateStatus.isDisposed()) {
                     return;
                 }
-                tvdbV4ValidateStatus.setText((fOk ? "✓ " : "✗ ") + fMsg);
+                setTvdbV4ValidateStatus((fOk ? "✓ " : "✗ ") + fMsg);
                 // Additive at-a-glance cue: tint the key field itself. Only ever
                 // reuses the pre-created, theme-appropriate Colors owned by
                 // themePalette -- never allocates a new Color here.

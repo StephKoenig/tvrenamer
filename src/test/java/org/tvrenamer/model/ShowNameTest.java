@@ -236,6 +236,88 @@ public class ShowNameTest {
     }
 
     @Nested
+    @DisplayName("Provider-switch failure invalidation")
+    class ProviderSwitchInvalidation {
+
+        @Test
+        @DisplayName("forgetFailedLookup clears a cached FailedShow and re-enables querying")
+        void forgetClearsCachedFailure() {
+            String name = uniqueName("Silent NoOp");
+            ShowName sn = ShowName.mapShowName(name);
+            // Simulate the previous provider failing to find the show: this is
+            // exactly what caches a FailedShow in the query string and makes the
+            // subsequent mapStringToShow short-circuit without re-querying.
+            sn.getFailedShow(null);
+            assertTrue(sn.getMatchedShow().isFailedShow(),
+                "precondition: a FailedShow is cached (would short-circuit re-match)");
+
+            boolean cleared = sn.forgetFailedLookup();
+
+            assertTrue(cleared, "a cached failure should be reported as cleared");
+            assertNull(sn.getMatchedShow(),
+                "cached failure must be gone so mapStringToShow re-queries the new provider");
+            assertTrue(sn.needsQuery(),
+                "with no cached match and no listeners, a fresh query is needed");
+        }
+
+        @Test
+        @DisplayName("forgetFailedLookup leaves a successful match untouched")
+        void forgetKeepsSuccessfulMatch() {
+            String name = uniqueName("Real Match");
+            ShowName sn = ShowName.mapShowName(name);
+            sn.addShowOption("5001", "Real Match Series");
+            sn.selectShowOption(); // caches a real (non-failed) match
+            ShowOption matched = sn.getMatchedShow();
+            assertNotNull(matched);
+            assertFalse(matched.isFailedShow(), "precondition: a real match is cached");
+
+            boolean cleared = sn.forgetFailedLookup();
+
+            assertFalse(cleared, "a real match must not be reported as cleared");
+            assertSame(matched, sn.getMatchedShow(),
+                "successful match must survive forgetFailedLookup");
+        }
+
+        @Test
+        @DisplayName("forgetFailedLookup is a no-op when nothing is cached")
+        void forgetNoOpWhenNothingCached() {
+            String name = uniqueName("Never Queried");
+            ShowName sn = ShowName.mapShowName(name);
+            assertNull(sn.getMatchedShow());
+            assertFalse(sn.forgetFailedLookup());
+            assertNull(sn.getMatchedShow());
+        }
+
+        @Test
+        @DisplayName("ShowStore.forgetFailedLookup makes a failed name re-queryable")
+        void showStoreForgetReenablesQuery() {
+            String name = uniqueName("Store Level");
+            ShowName sn = ShowName.mapShowName(name);
+            // Cache a failure exactly as a failed provider lookup would.
+            sn.getFailedShow(null);
+            assertNotNull(sn.getMatchedShow());
+
+            // Provider-switch path invalidates the cached failure by filename show.
+            ShowStore.forgetFailedLookup(name);
+
+            // Null cached match + needsQuery() means mapStringToShow takes the
+            // download branch (queries the current provider) rather than replaying
+            // the cached failure via listener.downloadFailed.
+            assertNull(sn.getMatchedShow(),
+                "ShowStore.forgetFailedLookup must clear the cached failure");
+            assertTrue(sn.needsQuery(),
+                "cleared failure must leave the name in a re-queryable state");
+        }
+
+        @Test
+        @DisplayName("ShowStore.forgetFailedLookup tolerates null and unknown names")
+        void showStoreForgetHandlesNullAndUnknown() {
+            assertDoesNotThrow(() -> ShowStore.forgetFailedLookup(null));
+            assertDoesNotThrow(() -> ShowStore.forgetFailedLookup(uniqueName("Unknown")));
+        }
+    }
+
+    @Nested
     @DisplayName("Listener integration")
     class ListenerIntegration {
 

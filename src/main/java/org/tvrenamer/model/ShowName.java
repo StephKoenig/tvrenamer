@@ -146,6 +146,26 @@ public class ShowName {
         }
 
         /**
+         * If the cached match for this QueryString is a {@link FailedShow},
+         * discard it so a subsequent lookup re-queries the provider.  A real
+         * (successful) match is never touched.
+         *
+         * Listeners are deliberately left alone: a completed failed lookup has
+         * already cleared them (see {@link #nameNotFound}), and non-empty
+         * listeners would indicate a download still in flight that we must not
+         * abandon.
+         *
+         * @return true if a cached failure was cleared; false otherwise
+         */
+        synchronized boolean forgetIfFailed() {
+            if (matchedShow != null && matchedShow.isFailedShow()) {
+                matchedShow = null;
+                return true;
+            }
+            return false;
+        }
+
+        /**
          * Factory-style method to obtain a QueryString.  If an object has already been created
          * for the query string we need for the found name, re-use it.
          *
@@ -479,6 +499,25 @@ public class ShowName {
      */
     public synchronized ShowOption getMatchedShow() {
         return queryString.getMatchedShow();
+    }
+
+    /**
+     * If this ShowName's query string is currently cached as a
+     * {@link FailedShow} (a lookup that did not resolve), forget that failure so
+     * the next lookup re-queries the provider.  A successful match is never
+     * disturbed.
+     *
+     * This exists so that switching the active data provider can retry a name
+     * the previous provider could not find, even though the query string is
+     * unchanged by the provider switch.
+     *
+     * @return true if a cached failure was cleared; false if the current match
+     *     was a real show (or there was no cached match at all)
+     */
+    public boolean forgetFailedLookup() {
+        synchronized (queryString) {
+            return queryString.forgetIfFailed();
+        }
     }
 
     /**

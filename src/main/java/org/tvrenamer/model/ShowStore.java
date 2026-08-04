@@ -442,6 +442,30 @@ public class ShowStore {
     }
 
     /**
+     * Invalidate a cached FAILED lookup for the given filename show, so the next
+     * call to {@link #mapStringToShow} re-queries the current provider.  Cached
+     * successful matches are left intact.
+     *
+     * This supports the "switch provider and retry unfound shows" flow: the
+     * normalized query string does not change when the provider changes, so
+     * without this the cached failure from the previous provider would
+     * short-circuit the retry (mapStringToShow checks the cached match before
+     * ever consulting the provider), making the switch a silent no-op.
+     *
+     * @param filenameShow
+     *            the name of the show as it appears in the filename
+     */
+    public static void forgetFailedLookup(final String filenameShow) {
+        if (filenameShow == null) {
+            return;
+        }
+        ShowName showName = ShowName.mapShowName(filenameShow);
+        if (showName.forgetFailedLookup()) {
+            logger.fine("forgot cached failed lookup for " + filenameShow);
+        }
+    }
+
+    /**
      * Download information about shows that match the given ShowName, and
      * choose the best option, if one exists.
      *

@@ -42,9 +42,22 @@ public class TheTVDBv4Provider implements EpisodeDataProvider {
     @Override
     public void getSeriesListing(Series series) throws TVRenamerIOException {
         boolean preferDvd = UserPreferences.getInstance().isPreferDvdOrderIfPresent();
-        List<EpisodeInfo> episodes = fetchAll(series.getId(), preferDvd ? "dvd" : "default");
-        if (episodes.isEmpty() && preferDvd) {
-            // Series has no DVD ordering: fall back to aired order.
+        List<EpisodeInfo> episodes;
+        if (preferDvd) {
+            // A series without DVD ordering may be signalled either as 200 + an
+            // empty list OR as a non-200 error status (which fetchAll surfaces as
+            // a TVRenamerIOException). Treat both the same: fall back to aired
+            // order. Only a failure of the aired ("default") fetch is fatal.
+            List<EpisodeInfo> dvdEpisodes = null;
+            try {
+                dvdEpisodes = fetchAll(series.getId(), "dvd");
+            } catch (TVRenamerIOException e) {
+                dvdEpisodes = null;
+            }
+            episodes = (dvdEpisodes != null && !dvdEpisodes.isEmpty())
+                ? dvdEpisodes
+                : fetchAll(series.getId(), "default");
+        } else {
             episodes = fetchAll(series.getId(), "default");
         }
         // v4 ordering is baked into the chosen season-type; no per-episode DVD fallback.

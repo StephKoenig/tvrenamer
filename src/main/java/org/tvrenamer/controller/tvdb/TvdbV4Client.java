@@ -65,6 +65,11 @@ public class TvdbV4Client {
                 throw new TVRenamerIOException("TheTVDB v4 login returned no token");
             }
             token = t;
+        } catch (TVRenamerIOException tve) {
+            // Already a domain exception (e.g. non-200 status, missing token):
+            // propagate as-is so its message isn't re-wrapped by the IOException
+            // handler below (TVRenamerIOException extends IOException).
+            throw tve;
         } catch (IOException e) {
             throw new TVRenamerIOException("TheTVDB v4 login error: " + e.getMessage(), e);
         }
@@ -115,6 +120,11 @@ public class TvdbV4Client {
                     "TheTVDB v4 request failed (HTTP " + resp.status() + "): " + path);
             }
             return resp.body();
+        } catch (TVRenamerIOException tve) {
+            // Already a domain exception (non-200 status, or thrown by a nested
+            // re-login): propagate as-is so its message isn't re-wrapped by the
+            // IOException handler below (TVRenamerIOException extends IOException).
+            throw tve;
         } catch (IOException e) {
             throw new TVRenamerIOException("TheTVDB v4 request error: " + e.getMessage(), e);
         }

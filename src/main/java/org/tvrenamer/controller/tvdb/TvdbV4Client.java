@@ -7,6 +7,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.tvrenamer.controller.tvdb.TvdbV4Transport.TvdbHttpResponse;
 import org.tvrenamer.model.TVRenamerIOException;
@@ -20,7 +21,8 @@ public class TvdbV4Client {
 
     private final TvdbV4Transport transport;
     private final Supplier<String> apiKeySupplier;
-    private String token;
+    private final Object loginLock = new Object();
+    private volatile String token;
 
     public TvdbV4Client(TvdbV4Transport transport, Supplier<String> apiKeySupplier) {
         this.transport = transport;
@@ -37,13 +39,14 @@ public class TvdbV4Client {
         return authedGet("/series/" + seriesId + "/episodes/" + seasonType + "?page=" + page);
     }
 
-    private synchronized void login() throws TVRenamerIOException {
+    /** Logs in unconditionally. Callers must hold {@link #loginLock}. */
+    private void login() throws TVRenamerIOException {
         String key = apiKeySupplier.get();
         if (key == null || key.trim().isEmpty()) {
             throw new TVRenamerIOException("TheTVDB v4 API key not configured");
         }
         Map<String, String> headers = jsonHeaders();
-        String body = "{\"apikey\":\"" + key.trim() + "\"}";
+        String body = GSON.toJson(Map.of("apikey", key.trim()));
         try {
             TvdbHttpResponse resp = transport.post(BASE_URL + "/login", body, headers);
             if (resp.status() != 200) {
@@ -51,8 +54,13 @@ public class TvdbV4Client {
                     "TheTVDB v4 login failed (HTTP " + resp.status() + ")");
             }
             JsonObject o = GSON.fromJson(resp.body(), JsonObject.class);
-            String t = (o != null && o.has("data"))
-                ? o.getAsJsonObject("data").get("token").getAsString() : null;
+            String t = null;
+            if (o != null && o.has("data") && o.get("data").isJsonObject()) {
+                JsonObject data = o.getAsJsonObject("data");
+                if (data.has("token") && data.get("token").isJsonPrimitive()) {
+                    t = data.get("token").getAsString();
+                }
+            }
             if (t == null || t.isEmpty()) {
                 throw new TVRenamerIOException("TheTVDB v4 login returned no token");
             }
@@ -62,16 +70,45 @@ public class TvdbV4Client {
         }
     }
 
-    private String authedGet(String path) throws TVRenamerIOException {
+    /**
+     * Logs in only if no token has been obtained yet. Double-checks under
+     * {@link #loginLock} so a pool of threads racing on the first call don't
+     * each fire a redundant login.
+     */
+    private void ensureLoggedIn() throws TVRenamerIOException {
         if (token == null) {
-            login();
+            synchronized (loginLock) {
+                if (token == null) {
+                    login();
+                }
+            }
         }
-        try {
-            TvdbHttpResponse resp = transport.get(BASE_URL + path, authHeaders());
-            if (resp.status() == 401) {
-                // token expired: re-login once and retry
+    }
+
+    /**
+     * Re-logs in only if {@code token} is still the stale value that produced
+     * a 401. If another thread already refreshed it while this one was
+     * waiting on the lock, that refreshed token is reused instead of firing a
+     * second redundant login.
+     */
+    private void reloginIfStillStale(String staleToken) throws TVRenamerIOException {
+        synchronized (loginLock) {
+            if (Objects.equals(token, staleToken)) {
                 login();
-                resp = transport.get(BASE_URL + path, authHeaders());
+            }
+        }
+    }
+
+    private String authedGet(String path) throws TVRenamerIOException {
+        ensureLoggedIn();
+        try {
+            String tokenForRequest = token;
+            TvdbHttpResponse resp = transport.get(BASE_URL + path, authHeaders(tokenForRequest));
+            if (resp.status() == 401) {
+                // token expired (or about to be): re-login once, unless
+                // another thread already refreshed it, then retry once.
+                reloginIfStillStale(tokenForRequest);
+                resp = transport.get(BASE_URL + path, authHeaders(token));
             }
             if (resp.status() != 200) {
                 throw new TVRenamerIOException(
@@ -90,10 +127,10 @@ public class TvdbV4Client {
         return h;
     }
 
-    private Map<String, String> authHeaders() {
+    private Map<String, String> authHeaders(String bearerToken) {
         Map<String, String> h = new LinkedHashMap<>();
         h.put("Accept", "application/json");
-        h.put("Authorization", "Bearer " + token);
+        h.put("Authorization", "Bearer " + bearerToken);
         return h;
     }
 }

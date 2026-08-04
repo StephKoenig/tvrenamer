@@ -1,7 +1,6 @@
 package org.tvrenamer.controller.tvdb;
 
 import static org.junit.jupiter.api.Assertions.*;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,12 +15,17 @@ public class TvdbV4ClientTest {
         final List<String> calls = new ArrayList<>();
         final List<TvdbHttpResponse> getQueue = new ArrayList<>();
         int logins = 0;
+        /** When set, returned as the login response body instead of the default success shape. */
+        String loginBodyOverride;
 
         @Override
         public TvdbHttpResponse post(String url, String body, Map<String, String> h) {
             calls.add("POST " + url);
             if (url.endsWith("/login")) {
                 logins++;
+                if (loginBodyOverride != null) {
+                    return new TvdbHttpResponse(200, loginBodyOverride);
+                }
                 return new TvdbHttpResponse(200, "{\"status\":\"success\",\"data\":{\"token\":\"tok" + logins + "\"}}");
             }
             return new TvdbHttpResponse(404, "");
@@ -75,5 +79,21 @@ public class TvdbV4ClientTest {
         TvdbV4Client c = new TvdbV4Client(t, () -> "  ");
         assertThrows(TVRenamerIOException.class, () -> c.searchSeriesJson("x"));
         assertTrue(t.calls.isEmpty(), "must not touch the network with a blank key");
+    }
+
+    @Test
+    public void emptyDataObjectInLoginBodyThrowsInsteadOfNpe() {
+        FakeTransport t = new FakeTransport();
+        t.loginBodyOverride = "{\"data\":{}}";
+        TvdbV4Client c = new TvdbV4Client(t, () -> "key");
+        assertThrows(TVRenamerIOException.class, () -> c.searchSeriesJson("x"));
+    }
+
+    @Test
+    public void nullDataInLoginBodyThrowsInsteadOfClassCastException() {
+        FakeTransport t = new FakeTransport();
+        t.loginBodyOverride = "{\"data\":null}";
+        TvdbV4Client c = new TvdbV4Client(t, () -> "key");
+        assertThrows(TVRenamerIOException.class, () -> c.searchSeriesJson("x"));
     }
 }

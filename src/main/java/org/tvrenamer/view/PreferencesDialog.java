@@ -844,6 +844,8 @@ class PreferencesDialog extends Dialog {
         tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1));
 
         tvdbV4ValidateButton.addListener(SWT.Selection, e -> validateTvdbV4KeyOnline());
+        // The user editing the key invalidates any prior green/red validation tint.
+        tvdbV4KeyText.addListener(SWT.Modify, e -> resetTvdbV4KeyValidationTint());
         providerCombo.addListener(SWT.Selection, e -> updateProviderControlsEnabled());
     }
 
@@ -898,6 +900,32 @@ class PreferencesDialog extends Dialog {
             .equals(providerCombo.getText());
         tvdbV4KeyText.setEnabled(v4);
         tvdbV4ValidateButton.setEnabled(v4);
+        // Switching providers makes any prior validation result stale.
+        resetTvdbV4KeyValidationTint();
+    }
+
+    /**
+     * Clears any green/red validation tint previously applied to the v4 API-key text
+     * field, restoring it to the normal themed control background. Called when a new
+     * validation starts, when the user edits the key text, and when the provider
+     * selection changes -- any of which makes a prior validation result stale.
+     *
+     * <p>Only ever touches the widget's background; never allocates a new
+     * {@link org.eclipse.swt.graphics.Color}. The two tint colours themselves are owned
+     * and disposed by {@link #themePalette} (see {@link ThemePalette#dispose()}), the
+     * same mechanism already used for every other themed colour in this dialog.
+     */
+    private void resetTvdbV4KeyValidationTint() {
+        if (tvdbV4KeyText == null || tvdbV4KeyText.isDisposed()) {
+            return;
+        }
+        if (themePalette != null) {
+            tvdbV4KeyText.setBackground(themePalette.getControlBackground());
+        } else {
+            // Defensive fallback; themePalette is set before this dialog's controls
+            // are created, so in practice this branch should not be reachable.
+            tvdbV4KeyText.setBackground(null);
+        }
     }
 
     /**
@@ -2303,6 +2331,8 @@ class PreferencesDialog extends Dialog {
     }
 
     private void validateTvdbV4KeyOnline() {
+        // A new validation run makes any prior green/red tint stale.
+        resetTvdbV4KeyValidationTint();
         final String key = tvdbV4KeyText.getText().trim();
         if (key.isEmpty()) {
             tvdbV4ValidateStatus.setText("Enter an API key first.");
@@ -2334,6 +2364,16 @@ class PreferencesDialog extends Dialog {
                     return;
                 }
                 tvdbV4ValidateStatus.setText((fOk ? "✓ " : "✗ ") + fMsg);
+                // Additive at-a-glance cue: tint the key field itself. Only ever
+                // reuses the pre-created, theme-appropriate Colors owned by
+                // themePalette -- never allocates a new Color here.
+                if (!tvdbV4KeyText.isDisposed() && themePalette != null) {
+                    tvdbV4KeyText.setBackground(
+                        fOk
+                            ? themePalette.getValidationSuccessBackground()
+                            : themePalette.getValidationErrorBackground()
+                    );
+                }
             });
         }, "tvrenamer-v4-validate");
         th.setDaemon(true);

@@ -1791,6 +1791,10 @@ public final class ResultsTable
                     rematchRows(ep -> ep.rematchWouldChangeResult(prefs));
                 }
                 break;
+            case EPISODE_DATA_PROVIDER:
+                // Switching providers: retry rows that failed under the old provider.
+                rematchRows(FileEpisode::isShowUnfound);
+                break;
             case IGNORE_REGEX:
             case PRELOAD_FOLDER:
             case ADD_SUBDIRS:
@@ -1802,6 +1806,7 @@ public final class ResultsTable
             case OVERWRITE_DESTINATION:
             case CLEANUP_DUPLICATES:
             case TAG_VIDEO_METADATA:
+            case TVDB_V4_API_KEY:
                 // These changes don't require an immediate table update here
                 break;
         }

@@ -40,6 +40,8 @@ public class UserPreferencesPersistence {
         "checkForUpdates",
         "themeMode",
         "theme",              // legacy alias
+        "episodeDataProvider",
+        "tvdbV4ApiKey",
         "recursivelyAddFolders",
         "preserveFileModificationTime",
         "preferDvdOrderIfPresent",
@@ -73,6 +75,8 @@ public class UserPreferencesPersistence {
         appendElement(xml, "renameReplacementMask", prefs.getRenameReplacementString());
         appendElement(xml, "checkForUpdates", prefs.checkForUpdates());
         appendElement(xml, "themeMode", prefs.getThemeMode().name());
+        appendElement(xml, "episodeDataProvider", prefs.getEpisodeDataProvider().name());
+        appendElement(xml, "tvdbV4ApiKey", prefs.getTvdbV4ApiKey());
         appendElement(xml, "recursivelyAddFolders", prefs.isRecursivelyAddFolders());
         appendElement(xml, "preserveFileModificationTime", prefs.isPreserveFileModificationTime());
         appendElement(xml, "preferDvdOrderIfPresent", prefs.isPreferDvdOrderIfPresent());

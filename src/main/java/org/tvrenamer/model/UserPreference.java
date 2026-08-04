@@ -15,6 +15,8 @@ public enum UserPreference {
     SHOW_NAME_OVERRIDES,
     PREFER_DVD_ORDER,
     THEME_MODE,
+    EPISODE_DATA_PROVIDER,
+    TVDB_V4_API_KEY,
 
     // File timestamp policy (e.g., preserve original mtime vs set to now) for move/rename operations.
     FILE_MTIME_POLICY,

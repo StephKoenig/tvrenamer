@@ -49,6 +49,8 @@ public class UserPreferences {
     private String renameReplacementMask;
     private boolean checkForUpdates;
     private ThemeMode themeMode;
+    private EpisodeDataProviderType episodeDataProvider;
+    private String tvdbV4ApiKey;
     private boolean recursivelyAddFolders;
 
     // If true (default), preserve the original file modification time when moving/renaming.
@@ -126,6 +128,8 @@ public class UserPreferences {
         renameReplacementMask = DEFAULT_REPLACEMENT_MASK;
         checkForUpdates = true;
         themeMode = ThemeMode.LIGHT;
+        episodeDataProvider = EpisodeDataProviderType.TVDB_V1;
+        tvdbV4ApiKey = "";
         recursivelyAddFolders = true;
 
         // Default: preserving timestamps is less surprising since the file contents
@@ -241,6 +245,17 @@ public class UserPreferences {
                 logger.warning("Unknown theme mode: " + val + "; defaulting to LIGHT");
                 p.themeMode = ThemeMode.LIGHT;
             }
+        }
+
+        val = scalars.get("episodeDataProvider");
+        if (val != null) {
+            EpisodeDataProviderType t = EpisodeDataProviderType.fromString(val);
+            p.episodeDataProvider =
+                (t == null) ? EpisodeDataProviderType.TVDB_V1 : t;
+        }
+        val = scalars.get("tvdbV4ApiKey");
+        if (val != null) {
+            p.tvdbV4ApiKey = val;
         }
 
         val = scalars.get("recursivelyAddFolders");
@@ -662,6 +677,52 @@ public class UserPreferences {
         if (valuesAreDifferent(this.themeMode, resolved)) {
             this.themeMode = resolved;
             preferenceChanged(UserPreference.THEME_MODE);
+        }
+    }
+
+    /**
+     * Return the currently selected episode data provider.
+     *
+     * @return selected EpisodeDataProviderType
+     */
+    public EpisodeDataProviderType getEpisodeDataProvider() {
+        return episodeDataProvider;
+    }
+
+    /**
+     * Set the episode data provider. Null inputs default to TVDB_V1.
+     *
+     * @param type the desired EpisodeDataProviderType
+     */
+    public void setEpisodeDataProvider(EpisodeDataProviderType type) {
+        EpisodeDataProviderType resolved =
+            (type == null) ? EpisodeDataProviderType.TVDB_V1 : type;
+        if (valuesAreDifferent(this.episodeDataProvider, resolved)) {
+            this.episodeDataProvider = resolved;
+            preferenceChanged(UserPreference.EPISODE_DATA_PROVIDER);
+        }
+    }
+
+    /**
+     * Return the API key used for TheTVDB v4 provider.
+     *
+     * @return the stored API key, or an empty string if unset
+     */
+    public String getTvdbV4ApiKey() {
+        return tvdbV4ApiKey;
+    }
+
+    /**
+     * Set the API key used for TheTVDB v4 provider. Null inputs default to
+     * an empty string.
+     *
+     * @param key the API key
+     */
+    public void setTvdbV4ApiKey(String key) {
+        String resolved = (key == null) ? "" : key.trim();
+        if (valuesAreDifferent(this.tvdbV4ApiKey, resolved)) {
+            this.tvdbV4ApiKey = resolved;
+            preferenceChanged(UserPreference.TVDB_V4_API_KEY);
         }
     }
 

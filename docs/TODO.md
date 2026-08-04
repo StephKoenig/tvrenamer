@@ -71,6 +71,28 @@ paths, with Windows-specific cases (case differences, mixed separators).
 - Define whether show mapping is strictly one-shot or can be incremental/async.
 - If async, design a listener contract that supports partial updates and finalization.
 
+### TheTVDB v4 provider follow-ups
+**Context:** The switchable TheTVDB v1/v4 provider (`docs/Completed.md` #58) shipped with
+three items intentionally deferred rather than gold-plated:
+
+- **Diagnosability nudge for a degraded provider.** Today, a provider whose search
+  returns empty for every query (the exact v1 outage that motivated this feature) is
+  only explained via a static help-page note (`troubleshooting.html`). Consider detecting
+  the pattern in-app (e.g. N consecutive empty-search rows) and surfacing a one-time
+  suggestion to try the other provider, instead of relying on the user to find the help page.
+- **Pagination cap logging.** `TheTVDBv4Provider.fetchAll()` stops at `MAX_PAGES = 20`
+  (`org.tvrenamer.controller.TheTVDBv4Provider`) as a safety cap. If a series genuinely has
+  more than 20 pages of episodes, listings are silently truncated. Add a log line (and/or a
+  user-visible note) when the cap is actually hit, rather than truncating without a trace.
+- **Validate button race.** `PreferencesDialog.validateTvdbV4KeyOnline()` has no
+  stale-result guard, unlike the mirrored `validateMatchingRowOnline()` (which stamps a
+  per-row token). Rapid double-clicks with different keys pasted in between could show the
+  first click's result after the second click's request also completes, if ordering is
+  unlucky. Add a monotonic token (or disable the button while a validation is in flight) to
+  match the existing pattern.
+
+**Effort:** Small (each item independently)
+
 ---
 
 ## Backlog suggestions / how to use this file

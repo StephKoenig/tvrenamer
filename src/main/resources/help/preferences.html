@@ -83,6 +83,28 @@
         <li><strong>DVD</strong> - DVD/BluRay release order (some shows reorder episodes)</li>
     </ul>
 
+    <h2>Data Provider</h2>
+
+    <h3>TV Data Provider</h3>
+    <p>Which TheTVDB API TVRenamer uses to search for shows and download episode listings:</p>
+    <ul>
+        <li><strong>TheTVDB (v1)</strong> - Default. No API key required.</li>
+        <li><strong>TheTVDB (v4)</strong> - Alternative provider. Requires a personal API key (see below).</li>
+    </ul>
+    <p>Switching providers automatically retries any rows that previously failed to match a show.</p>
+
+    <h3>TheTVDB v4 API Key</h3>
+    <p>Only used when <strong>TheTVDB (v4)</strong> is selected above. Get a personal API key
+    by creating a free account at <a href="https://thetvdb.com/" target="_blank">thetvdb.com</a>,
+    then paste it into this field.</p>
+    <p>Click <strong>Validate</strong> to check the key against TheTVDB before saving. Validation
+    runs in the background and reports success or failure without blocking the dialog.</p>
+
+    <div class="tip">
+        <strong>Tip:</strong> If a show you know exists consistently returns "No info", try
+        switching providers &mdash; see <a href="troubleshooting.html">Troubleshooting</a>.
+    </div>
+
     <h2>Preload Folder</h2>
 
     <h3>Enable Preload</h3>

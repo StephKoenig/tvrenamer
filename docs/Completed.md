@@ -751,6 +751,66 @@ Completes the code improvement opportunities document (all 24 items done).
 - **What:** Implemented in five phases: docs/dead code; user-facing correctness (sort row-identity loss, language-map symmetry, COMPLETED-icon downgrade); process lifecycle (ProcessRunner drain-thread timeout enforcement, removal of the 120 s task deadline, per-run executor); robustness/leaks (atomic prefs writes, path-component hardening, 404 latch threshold + retry, TableEditor/overlay lifecycle, batched prefs persistence, exact tick accounting with tagger NO_TOOL); test infrastructure (WorkPlan/predictor/candidate-selection extractions with pinning tests, 350 → 396 tests); and the tool-integration consolidation (`DetectedTool`, shared `ProcessOps`, `AbstractSubtitleMerger`, unified `<base>.merging.<ext>` temp naming).
 - **Notes:** One CI flake shipped and was caught mid-round (the hung-process timing test; split into deterministic kill and capture tests). The source-side language-tag boundary (#50) is pinned by an explicit test rather than changed — bare subtitles merge source-side with the default language, tagged ones defer to post-batch tag parsing.
 
+### 58) Switchable TheTVDB data provider — v1 (default) + v4 (personal API key)
+- **Why:** TheTVDB v1's name-search endpoint (`GetSeries.php?seriesname=...`) started
+  returning an empty result envelope for every query — a silent index outage, not a
+  decommission (`HTTP 200`, no error/deprecation header; direct id-based v1 lookups kept
+  working). Since TVRenamer only has the show *name* parsed from a filename, this made
+  every row fail with a misleading "No info" until the outage cleared. Waiting on an
+  upstream fix was open-ended, so we added TheTVDB's newer v4 REST/JSON API as a second,
+  user-selectable provider, without changing v1's zero-config default behaviour.
+- **Where:** `org.tvrenamer.controller.EpisodeDataProvider` (new interface),
+  `TheTVDBLegacyProvider` (wraps the existing v1 code path), `TheTVDBv4Provider` (new),
+  `TvdbProviders` (selector), `org.tvrenamer.controller.tvdb.TvdbV4Client` +
+  `TvdbV4Transport`/`JdkHttpTransport` (new v4 HTTP layer), `V4Parser` (new, pure
+  JSON→model parsing), `org.tvrenamer.model.EpisodeDataProviderType` (new enum),
+  `UserPreferences`/`UserPreferencesPersistence` (`episodeDataProvider`,
+  `tvdbV4ApiKey`), `PreferencesDialog` (General tab UI), `ResultsTable`
+  (re-match on provider switch), `ListingsLookup` + `ShowStore` (call sites routed
+  through the selector), `build.gradle` / `gradle/libs.versions.toml` (Gson dependency),
+  `docs/TVDB v4 Provider Spec.md`.
+- **What we did:**
+  - Introduced `EpisodeDataProvider` (`getShowOptions`, `getSeriesListing`) as the seam
+    between show-matching/listings code and the two concrete providers; `TvdbProviders.current()`
+    reads `UserPreferences.getEpisodeDataProvider()` and returns the matching singleton.
+    `ListingsLookup` and `ShowStore` now call through `TvdbProviders.current()` instead of a
+    hardcoded v1 call.
+  - `TheTVDBv4Provider` uses `TvdbV4Client` for auth + raw JSON, and `V4Parser` (Gson-backed,
+    no I/O) to turn responses into the existing `ShowOption`/`EpisodeInfo` models. Episode
+    listings are paginated (`page` query param) with a `MAX_PAGES = 20` safety cap; DVD
+    ordering reuses the existing `preferDvdOrderIfPresent` preference by requesting the
+    `dvd` season-type, falling back to `default` if the series has no DVD season.
+  - `TvdbV4Client` handles the v4 bearer-token lifecycle: lazy login on first use, token
+    reused across calls, and a single reactive re-login-and-retry on a `401` (guarded so a
+    pool of racing threads only re-logs-in once if another thread already refreshed the
+    stale token).
+  - Added two new persisted preferences: `episodeDataProvider` (enum, defaults to
+    `TVDB_V1`) and `tvdbV4ApiKey` (string, defaults to empty). Added `Gson 2.11.0` as a
+    runtime dependency (flat DTOs only; no reflection-heavy features used) and regenerated
+    `gradle.lockfile`.
+  - Added a "TV data provider" control group to the Preferences → General tab: a read-only
+    provider `Combo`, an API key `Text` field, and a **Validate** button that fires a
+    background thread calling `TvdbV4Client.searchSeriesJson("test")` — a successful search
+    implies login succeeded — and reports "✓ API key is valid." or "✗ Validation failed: …"
+    without blocking the dialog. The key field and Validate button are enabled only while
+    v4 is the selected provider.
+  - Switching the provider preference now automatically retries any row that previously
+    failed to match a show (`ResultsTable` re-matches `FileEpisode::isShowUnfound` rows on
+    the `EPISODE_DATA_PROVIDER` preference-change event), so the user doesn't have to
+    remove and re-add files after flipping providers.
+  - Added a troubleshooting note (`troubleshooting.html`) and a new "Data Provider" section
+    (`preferences.html`) documenting the setting, plus a "Data providers" subsection in
+    `README.md`.
+- **Notes:**
+  - v1 remains the keyless default; v4 is strictly opt-in and requires a personal API key
+    from TheTVDB (never shipped in the repo).
+  - This is a manual, one-way toggle — there is no automatic fallback between providers.
+  - Deferred to `docs/TODO.md`: an in-app nudge when a provider's search is empty for every
+    query (currently surfaced only via the help-page note), a debug-log line when v4
+    pagination hits its 20-page cap (currently a silent truncation), and a stale-result
+    guard / in-flight disable on the Validate button (rapid double-clicks can theoretically
+    show a stale result if two validations race).
+
 ---
 
 ## Related records

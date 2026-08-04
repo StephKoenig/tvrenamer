@@ -1,0 +1,99 @@
+package org.tvrenamer.controller.tvdb;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Supplier;
+import org.tvrenamer.controller.tvdb.TvdbV4Transport.TvdbHttpResponse;
+import org.tvrenamer.model.TVRenamerIOException;
+
+/** Handles v4 auth (bearer token, reactive re-login) and raw JSON fetches. */
+public class TvdbV4Client {
+
+    static final String BASE_URL = "https://api4.thetvdb.com/v4";
+
+    private static final Gson GSON = new Gson();
+
+    private final TvdbV4Transport transport;
+    private final Supplier<String> apiKeySupplier;
+    private String token;
+
+    public TvdbV4Client(TvdbV4Transport transport, Supplier<String> apiKeySupplier) {
+        this.transport = transport;
+        this.apiKeySupplier = apiKeySupplier;
+    }
+
+    public String searchSeriesJson(String query) throws TVRenamerIOException {
+        String enc = URLEncoder.encode(query == null ? "" : query, StandardCharsets.UTF_8);
+        return authedGet("/search?query=" + enc + "&type=series");
+    }
+
+    public String episodesJson(int seriesId, String seasonType, int page)
+        throws TVRenamerIOException {
+        return authedGet("/series/" + seriesId + "/episodes/" + seasonType + "?page=" + page);
+    }
+
+    private synchronized void login() throws TVRenamerIOException {
+        String key = apiKeySupplier.get();
+        if (key == null || key.trim().isEmpty()) {
+            throw new TVRenamerIOException("TheTVDB v4 API key not configured");
+        }
+        Map<String, String> headers = jsonHeaders();
+        String body = "{\"apikey\":\"" + key.trim() + "\"}";
+        try {
+            TvdbHttpResponse resp = transport.post(BASE_URL + "/login", body, headers);
+            if (resp.status() != 200) {
+                throw new TVRenamerIOException(
+                    "TheTVDB v4 login failed (HTTP " + resp.status() + ")");
+            }
+            JsonObject o = GSON.fromJson(resp.body(), JsonObject.class);
+            String t = (o != null && o.has("data"))
+                ? o.getAsJsonObject("data").get("token").getAsString() : null;
+            if (t == null || t.isEmpty()) {
+                throw new TVRenamerIOException("TheTVDB v4 login returned no token");
+            }
+            token = t;
+        } catch (IOException e) {
+            throw new TVRenamerIOException("TheTVDB v4 login error: " + e.getMessage(), e);
+        }
+    }
+
+    private String authedGet(String path) throws TVRenamerIOException {
+        if (token == null) {
+            login();
+        }
+        try {
+            TvdbHttpResponse resp = transport.get(BASE_URL + path, authHeaders());
+            if (resp.status() == 401) {
+                // token expired: re-login once and retry
+                login();
+                resp = transport.get(BASE_URL + path, authHeaders());
+            }
+            if (resp.status() != 200) {
+                throw new TVRenamerIOException(
+                    "TheTVDB v4 request failed (HTTP " + resp.status() + "): " + path);
+            }
+            return resp.body();
+        } catch (IOException e) {
+            throw new TVRenamerIOException("TheTVDB v4 request error: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, String> jsonHeaders() {
+        Map<String, String> h = new LinkedHashMap<>();
+        h.put("Content-Type", "application/json");
+        h.put("Accept", "application/json");
+        return h;
+    }
+
+    private Map<String, String> authHeaders() {
+        Map<String, String> h = new LinkedHashMap<>();
+        h.put("Accept", "application/json");
+        h.put("Authorization", "Bearer " + token);
+        return h;
+    }
+}

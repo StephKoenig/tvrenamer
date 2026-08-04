@@ -120,6 +120,19 @@ English only. Default endpoints return default-language names; if forced English
 is later needed, v4 offers `/series/{id}/episodes/{season-type}/{lang}` — out of
 scope now.
 
+### Verified live shape (2026-08-04, against a real key)
+- **Search result** fields used: `tvdb_id` (clean numeric string, e.g. `"403245"`),
+  `name`, `year` (string, e.g. `"2023"`), `aliases` (array of **strings**). Also
+  present but unused: `id`/`objectID` (`"series-403245"`), `first_air_time`,
+  `overview`, `status`, `country`, nested `remote_ids`.
+- **Episodes** envelope: `data.series` (series meta) + `data.episodes[]`. Each
+  episode: `id`, `seriesId`, `seasonNumber`, `number`, `name`, `aired`
+  (`YYYY-MM-DD`), `runtime`; also `absoluteNumber` (available if absolute
+  ordering is ever needed). Pagination: `data.links {next, total_items, page_size:500}`.
+- **Gotcha:** `aliases` is a **string array in search** but an **object array
+  `{language,name}` in the series payload** — parse each context separately.
+- **Login:** token at `data.token` (~1.1 KB JWT).
+
 ### JSON parsing
 Gson with small DTO classes for the three envelopes (`login`, `search`,
 `episodes`). Only the `data` field is read on success; `status`/`message` are

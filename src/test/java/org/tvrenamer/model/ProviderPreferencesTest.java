@@ -2,6 +2,9 @@ package org.tvrenamer.model;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,10 +22,20 @@ public class ProviderPreferencesTest {
 
     @Test
     public void defaultsToV1AndEmptyKey() {
-        UserPreferences p = UserPreferences.getInstance();
+        // Build a fresh instance from empty parsed-XML inputs, rather than using
+        // UserPreferences.getInstance(), which lazily loads the machine's real
+        // ~/.tvrenamer/prefs.xml and would reflect whatever the user last saved
+        // (e.g. TVDB_V4) instead of the constructor/parse default asserted here.
+        Map<String, String> emptyScalars = new HashMap<>();
+        List<String> emptyKeywords = List.of();
+        Map<String, String> emptyNameOverrides = new HashMap<>();
+        Map<String, String> emptyDisambigOverrides = new HashMap<>();
+        UserPreferences defaults = UserPreferences.fromParsedXml(
+            emptyScalars, emptyKeywords, emptyNameOverrides, emptyDisambigOverrides);
+
         // Default must be the keyless v1 provider.
-        assertEquals(EpisodeDataProviderType.TVDB_V1, p.getEpisodeDataProvider());
-        assertEquals("", p.getTvdbV4ApiKey());
+        assertEquals(EpisodeDataProviderType.TVDB_V1, defaults.getEpisodeDataProvider());
+        assertEquals("", defaults.getTvdbV4ApiKey());
     }
 
     @Test

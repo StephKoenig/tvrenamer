@@ -45,8 +45,11 @@ import org.tvrenamer.controller.TvdbProviders;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages.Language;
 import org.tvrenamer.controller.subtitle.SubtitleMergeController;
+import org.tvrenamer.controller.tvdb.JdkHttpTransport;
+import org.tvrenamer.controller.tvdb.TvdbV4Client;
 import org.tvrenamer.controller.util.FileUtilities;
 import org.tvrenamer.controller.util.StringUtils;
+import org.tvrenamer.model.EpisodeDataProviderType;
 import org.tvrenamer.model.ReplacementToken;
 import org.tvrenamer.model.ShowName;
 import org.tvrenamer.model.ShowOption;
@@ -243,6 +246,12 @@ class PreferencesDialog extends Dialog {
     private Combo themeModeCombo;
     private Button preferDvdOrderCheckbox;
     private ThemePalette themePalette;
+
+    // TV data provider selection (v1 vs. v4) + v4 API key validation.
+    private Combo providerCombo;
+    private Text tvdbV4KeyText;
+    private Button tvdbV4ValidateButton;
+    private Label tvdbV4ValidateStatus;
 
     // Matching (Overrides + Disambiguations)
     // Overrides (Extracted show -> replacement show text)
@@ -817,6 +826,25 @@ class PreferencesDialog extends Dialog {
             GridData.BEGINNING,
             3
         );
+
+        createLabel(PROVIDER_LABEL_TEXT, PROVIDER_TOOLTIP, generalGroup);
+        providerCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
+        providerCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
+        providerCombo.setToolTipText(PROVIDER_TOOLTIP);
+        for (EpisodeDataProviderType t : EpisodeDataProviderType.values()) {
+            providerCombo.add(t.toString());
+        }
+
+        createLabel(TVDB_V4_KEY_LABEL_TEXT, TVDB_V4_KEY_TOOLTIP, generalGroup);
+        tvdbV4KeyText = createText(prefs.getTvdbV4ApiKey(), generalGroup, false);
+        tvdbV4ValidateButton = new Button(generalGroup, SWT.PUSH);
+        tvdbV4ValidateButton.setText(TVDB_V4_VALIDATE_BUTTON_TEXT);
+
+        tvdbV4ValidateStatus = new Label(generalGroup, SWT.NONE);
+        tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1));
+
+        tvdbV4ValidateButton.addListener(SWT.Selection, e -> validateTvdbV4KeyOnline());
+        providerCombo.addListener(SWT.Selection, e -> updateProviderControlsEnabled());
     }
 
     private void initializeGeneralControls() {
@@ -858,7 +886,18 @@ class PreferencesDialog extends Dialog {
             themeModeCombo.select(0);
         }
 
+        int provIdx = providerCombo.indexOf(prefs.getEpisodeDataProvider().toString());
+        providerCombo.select(provIdx >= 0 ? provIdx : 0);
+        updateProviderControlsEnabled();
+
         initializeSubtitleControls();
+    }
+
+    private void updateProviderControlsEnabled() {
+        boolean v4 = EpisodeDataProviderType.TVDB_V4.toString()
+            .equals(providerCombo.getText());
+        tvdbV4KeyText.setEnabled(v4);
+        tvdbV4ValidateButton.setEnabled(v4);
     }
 
     /**
@@ -2055,6 +2094,12 @@ class PreferencesDialog extends Dialog {
         }
         prefs.setThemeMode(selectedTheme);
 
+        EpisodeDataProviderType provider =
+            EpisodeDataProviderType.fromString(providerCombo.getText());
+        prefs.setEpisodeDataProvider(
+            provider == null ? EpisodeDataProviderType.TVDB_V1 : provider);
+        prefs.setTvdbV4ApiKey(tvdbV4KeyText.getText());
+
         // Show name overrides (exact match, case-insensitive)
         // Note: column 0 is the status icon column; values are in columns 1 and 2.
         Map<String, String> overrides = new LinkedHashMap<>();
@@ -2255,6 +2300,44 @@ class PreferencesDialog extends Dialog {
         );
         validateThread.setDaemon(true);
         validateThread.start();
+    }
+
+    private void validateTvdbV4KeyOnline() {
+        final String key = tvdbV4KeyText.getText().trim();
+        if (key.isEmpty()) {
+            tvdbV4ValidateStatus.setText("Enter an API key first.");
+            return;
+        }
+        tvdbV4ValidateStatus.setText("Validating…");
+        Thread th = new Thread(() -> {
+            boolean ok;
+            String msg;
+            try {
+                TvdbV4Client c = new TvdbV4Client(new JdkHttpTransport(), () -> key);
+                // A successful search implies login succeeded.
+                c.searchSeriesJson("test");
+                ok = true;
+                msg = "API key is valid.";
+            } catch (Exception ex) {
+                ok = false;
+                msg = "Validation failed: " + ex.getMessage();
+            }
+            final boolean fOk = ok;
+            final String fMsg = msg;
+            Display display = (preferencesShell != null)
+                ? preferencesShell.getDisplay() : Display.getDefault();
+            if (display == null || display.isDisposed()) {
+                return;
+            }
+            display.asyncExec(() -> {
+                if (tvdbV4ValidateStatus.isDisposed()) {
+                    return;
+                }
+                tvdbV4ValidateStatus.setText((fOk ? "✓ " : "✗ ") + fMsg);
+            });
+        }, "tvrenamer-v4-validate");
+        th.setDaemon(true);
+        th.start();
     }
 
     private static final class ValidationResult {

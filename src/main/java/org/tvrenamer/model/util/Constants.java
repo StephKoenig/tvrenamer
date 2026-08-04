@@ -158,6 +158,13 @@ public class Constants {
         "Changes take effect after restart.";
     public static final String THEME_MODE_RESTART_NOTE =
         "Theme changes apply next time TVRenamer starts.";
+    public static final String PROVIDER_LABEL_TEXT = "TV data provider:";
+    public static final String PROVIDER_TOOLTIP =
+        "Which TheTVDB API to use for looking up shows and episodes.";
+    public static final String TVDB_V4_KEY_LABEL_TEXT = "TheTVDB v4 API key:";
+    public static final String TVDB_V4_KEY_TOOLTIP =
+        "Your personal TheTVDB v4 API key (required when the v4 provider is selected).";
+    public static final String TVDB_V4_VALIDATE_BUTTON_TEXT = "Validate";
     public static final String PREFER_DVD_ORDER_TEXT =
         "Prefer DVD episode order if present [?]";
     public static final String PREFER_DVD_ORDER_TOOLTIP =

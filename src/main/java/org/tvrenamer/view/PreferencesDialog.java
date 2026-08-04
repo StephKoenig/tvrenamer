@@ -41,7 +41,7 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
-import org.tvrenamer.controller.TheTVDBProvider;
+import org.tvrenamer.controller.TvdbProviders;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages;
 import org.tvrenamer.controller.subtitle.SubtitleLanguages.Language;
 import org.tvrenamer.controller.subtitle.SubtitleMergeController;
@@ -2288,7 +2288,7 @@ class PreferencesDialog extends Dialog {
 
             ShowName sn = ShowName.mapShowName(queryString);
             try {
-                TheTVDBProvider.getShowOptions(sn);
+                TvdbProviders.current().getShowOptions(sn);
             } catch (Exception e) {
                 return ValidationResult.invalid(
                     "Cannot validate (provider unavailable)"
@@ -2317,7 +2317,7 @@ class PreferencesDialog extends Dialog {
 
         ShowName sn = ShowName.mapShowName(replacementText);
         try {
-            TheTVDBProvider.getShowOptions(sn);
+            TvdbProviders.current().getShowOptions(sn);
         } catch (Exception e) {
             return ValidationResult.invalid(
                 "Cannot validate (provider unavailable)"

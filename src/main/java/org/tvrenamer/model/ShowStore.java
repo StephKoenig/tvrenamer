@@ -11,7 +11,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.logging.Logger;
 import org.tvrenamer.controller.ShowInformationListener;
-import org.tvrenamer.controller.TheTVDBProvider;
+import org.tvrenamer.controller.TvdbProviders;
 
 /**
  * ShowStore -- maps strings to Show objects.<p>
@@ -465,7 +465,7 @@ public class ShowStore {
         Callable<Boolean> showFetcher = () -> {
             ShowOption showOption;
             try {
-                TheTVDBProvider.getShowOptions(showName);
+                TvdbProviders.current().getShowOptions(showName);
 
                 // If the user previously disambiguated this query string, honor it.
                 String queryString = showName.getQueryString();

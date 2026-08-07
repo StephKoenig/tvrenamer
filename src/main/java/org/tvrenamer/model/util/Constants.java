@@ -165,6 +165,9 @@ public class Constants {
     public static final String TVDB_V4_KEY_TOOLTIP =
         "Your personal TheTVDB v4 API key (required when the v4 provider is selected).";
     public static final String TVDB_V4_VALIDATE_BUTTON_TEXT = "Validate";
+    public static final String TITLE_LANGUAGE_LABEL_TEXT = "Title language:";
+    public static final String TITLE_LANGUAGE_TOOLTIP =
+        "Language for the show name and episode titles in renamed files (TheTVDB v4 only).";
     public static final String PREFER_DVD_ORDER_TEXT =
         "Prefer DVD episode order if present [?]";
     public static final String PREFER_DVD_ORDER_TOOLTIP =

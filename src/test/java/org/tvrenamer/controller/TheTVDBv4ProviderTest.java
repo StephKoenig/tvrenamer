@@ -11,6 +11,7 @@ import org.tvrenamer.model.Series;
 import org.tvrenamer.model.ShowName;
 import org.tvrenamer.model.ShowOption;
 import org.tvrenamer.model.TVRenamerIOException;
+import org.tvrenamer.model.TitleLanguage;
 import org.tvrenamer.model.UserPreferences;
 
 public class TheTVDBv4ProviderTest {
@@ -40,6 +41,19 @@ public class TheTVDBv4ProviderTest {
             }
             public TvdbHttpResponse get(String u, java.util.Map<String,String> h) {
                 return getResponder.apply(u);
+            }
+        };
+        return new TvdbV4Client(t, () -> "key");
+    }
+
+    /** Client whose GET responses are decided per-URL substring (episodes vs. translations). */
+    private static TvdbV4Client scriptedClient(Function<String, String> byUrl) {
+        TvdbV4Transport t = new TvdbV4Transport() {
+            public TvdbHttpResponse post(String u, String b, java.util.Map<String,String> h) {
+                return new TvdbHttpResponse(200, "{\"data\":{\"token\":\"tok\"}}");
+            }
+            public TvdbHttpResponse get(String u, java.util.Map<String,String> h) {
+                return new TvdbHttpResponse(200, byUrl.apply(u));
             }
         };
         return new TvdbV4Client(t, () -> "key");
@@ -115,5 +129,37 @@ public class TheTVDBv4ProviderTest {
         Series series = Series.createSeries(990203, "Hard Failure");
         withPreferDvd(() ->
             assertThrows(TVRenamerIOException.class, () -> provider.getSeriesListing(series)));
+    }
+
+    @Test
+    public void setsTranslatedSeriesNameOverride() throws Exception {
+        UserPreferences.getInstance().setTitleLanguage(TitleLanguage.ENGLISH);
+        try {
+            TvdbV4Client c = scriptedClient(u -> {
+                if (u.contains("/translations/")) {
+                    return "{\"data\":{\"name\":\"Sun City\",\"language\":\"eng\"}}";
+                }
+                return "{\"data\":{\"episodes\":[]}}";
+            });
+            TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+            Series s = Series.createSeries(770101, "Ciudad del Sol");
+            provider.getSeriesListing(s);
+            assertEquals("Sun City", s.getName());
+        } finally {
+            UserPreferences.getInstance().setTitleLanguage(TitleLanguage.ENGLISH);
+        }
+    }
+
+    @Test
+    public void clearsOverrideWhenTranslationMissing() throws Exception {
+        TvdbV4Client c = scriptedClient(u ->
+            u.contains("/translations/")
+                ? "{\"data\":{\"language\":\"eng\"}}"     // no name
+                : "{\"data\":{\"episodes\":[]}}");
+        TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+        Series s = Series.createSeries(770102, "Ciudad del Sol");
+        s.setDisplayNameOverride("stale");
+        provider.getSeriesListing(s);
+        assertEquals("Ciudad del Sol", s.getName(), "override must reset when no translation");
     }
 }

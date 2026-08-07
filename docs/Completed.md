@@ -844,8 +844,10 @@ Completes the code improvement opportunities document (all 24 items done).
     the override when set, otherwise the original name — the single read point for `%S`,
     so no formatter change was needed. `TheTVDBv4Provider.getSeriesListing` resets the
     override first (so a stale value can't leak via the cached `Series` in
-    `KNOWN_SERIES`), then sets it from the translation call only when the requested
-    language differs from the show's default and a non-blank translation comes back.
+    `KNOWN_SERIES`), then fetches the translated name for every resolved series
+    (unconditionally, English included) and applies it as the override when a
+    non-blank name is returned; otherwise the override stays cleared and the
+    original name is used.
   - Added a "Title language" dropdown to the Preferences → General → TV data provider
     group, populated from `TitleLanguage.values()`, enabled only while the v4 provider is
     selected (mirrors the existing API-key field enable/disable), and round-tripped on

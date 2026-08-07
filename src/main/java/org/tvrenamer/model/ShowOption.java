@@ -12,6 +12,7 @@ public class ShowOption {
 
     final String idString;
     final String name;
+    private volatile String displayNameOverride = null;
 
     // Optional metadata (primarily used for disambiguation UX)
     final Integer firstAiredYear; // nullable
@@ -153,7 +154,23 @@ public class ShowOption {
      *            the name of the show from the provider
      */
     public String getName() {
+        String o = displayNameOverride;
+        if (o != null && !o.isBlank()) {
+            return o;
+        }
         return name;
+    }
+
+    /**
+     * Override the name returned by {@link #getName()} (e.g. a translated series
+     * name). Pass null/blank to clear and fall back to the original name.
+     *
+     * @param override
+     *     the display name to use in place of the original name, or null/blank
+     *     to clear the override
+     */
+    public void setDisplayNameOverride(String override) {
+        this.displayNameOverride = override;
     }
 
     /**

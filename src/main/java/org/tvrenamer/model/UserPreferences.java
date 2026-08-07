@@ -51,6 +51,7 @@ public class UserPreferences {
     private ThemeMode themeMode;
     private EpisodeDataProviderType episodeDataProvider;
     private String tvdbV4ApiKey;
+    private TitleLanguage titleLanguage;
     private boolean recursivelyAddFolders;
 
     // If true (default), preserve the original file modification time when moving/renaming.
@@ -130,6 +131,7 @@ public class UserPreferences {
         themeMode = ThemeMode.LIGHT;
         episodeDataProvider = EpisodeDataProviderType.TVDB_V1;
         tvdbV4ApiKey = "";
+        titleLanguage = TitleLanguage.ENGLISH;
         recursivelyAddFolders = true;
 
         // Default: preserving timestamps is less surprising since the file contents
@@ -256,6 +258,12 @@ public class UserPreferences {
         val = scalars.get("tvdbV4ApiKey");
         if (val != null) {
             p.tvdbV4ApiKey = val;
+        }
+
+        val = scalars.get("titleLanguage");
+        if (val != null) {
+            TitleLanguage t = TitleLanguage.fromString(val);
+            p.titleLanguage = (t == null) ? TitleLanguage.ENGLISH : t;
         }
 
         val = scalars.get("recursivelyAddFolders");
@@ -723,6 +731,29 @@ public class UserPreferences {
         if (valuesAreDifferent(this.tvdbV4ApiKey, resolved)) {
             this.tvdbV4ApiKey = resolved;
             preferenceChanged(UserPreference.TVDB_V4_API_KEY);
+        }
+    }
+
+    /**
+     * Return the language used for the show name and episode titles written
+     * into renamed files (v4 provider only).
+     *
+     * @return selected TitleLanguage
+     */
+    public TitleLanguage getTitleLanguage() {
+        return titleLanguage;
+    }
+
+    /**
+     * Set the title language. Null inputs default to ENGLISH.
+     *
+     * @param language the desired TitleLanguage
+     */
+    public void setTitleLanguage(TitleLanguage language) {
+        TitleLanguage resolved = (language == null) ? TitleLanguage.ENGLISH : language;
+        if (valuesAreDifferent(this.titleLanguage, resolved)) {
+            this.titleLanguage = resolved;
+            preferenceChanged(UserPreference.TITLE_LANGUAGE);
         }
     }
 

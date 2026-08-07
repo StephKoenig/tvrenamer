@@ -42,6 +42,7 @@ public class UserPreferencesPersistence {
         "theme",              // legacy alias
         "episodeDataProvider",
         "tvdbV4ApiKey",
+        "titleLanguage",
         "recursivelyAddFolders",
         "preserveFileModificationTime",
         "preferDvdOrderIfPresent",
@@ -77,6 +78,7 @@ public class UserPreferencesPersistence {
         appendElement(xml, "themeMode", prefs.getThemeMode().name());
         appendElement(xml, "episodeDataProvider", prefs.getEpisodeDataProvider().name());
         appendElement(xml, "tvdbV4ApiKey", prefs.getTvdbV4ApiKey());
+        appendElement(xml, "titleLanguage", prefs.getTitleLanguage().name());
         appendElement(xml, "recursivelyAddFolders", prefs.isRecursivelyAddFolders());
         appendElement(xml, "preserveFileModificationTime", prefs.isPreserveFileModificationTime());
         appendElement(xml, "preferDvdOrderIfPresent", prefs.isPreferDvdOrderIfPresent());

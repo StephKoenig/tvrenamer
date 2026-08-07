@@ -46,17 +46,11 @@ public class TheTVDBv4ProviderTest {
         return new TvdbV4Client(t, () -> "key");
     }
 
-    /** Client whose GET responses are decided per-URL substring (episodes vs. translations). */
+    /** Client whose GET responses are decided per-URL substring (episodes vs. translations);
+     *  always answers with HTTP 200. Built atop {@link #clientForListing} so both helpers
+     *  share one fake-transport implementation. */
     private static TvdbV4Client scriptedClient(Function<String, String> byUrl) {
-        TvdbV4Transport t = new TvdbV4Transport() {
-            public TvdbHttpResponse post(String u, String b, java.util.Map<String,String> h) {
-                return new TvdbHttpResponse(200, "{\"data\":{\"token\":\"tok\"}}");
-            }
-            public TvdbHttpResponse get(String u, java.util.Map<String,String> h) {
-                return new TvdbHttpResponse(200, byUrl.apply(u));
-            }
-        };
-        return new TvdbV4Client(t, () -> "key");
+        return clientForListing(u -> new TvdbHttpResponse(200, byUrl.apply(u)));
     }
 
     /** Run {@code body} with the DVD-order preference forced on, then restore it. */
@@ -161,5 +155,24 @@ public class TheTVDBv4ProviderTest {
         s.setDisplayNameOverride("stale");
         provider.getSeriesListing(s);
         assertEquals("Ciudad del Sol", s.getName(), "override must reset when no translation");
+    }
+
+    @Test
+    public void translationCallFailureLeavesOverrideCleared() throws Exception {
+        // Regression: unlike clearsOverrideWhenTranslationMissing (200 OK, no "name" key),
+        // this makes the translations call itself fail (non-200), which TvdbV4Client surfaces
+        // as a TVRenamerIOException. The reset-then-set order in getSeriesListing must still
+        // leave a pre-seeded stale override cleared, and episode fetching must be unaffected.
+        TvdbV4Client c = clientForListing(u ->
+            u.contains("/translations/")
+                ? new TvdbHttpResponse(404, "")
+                : new TvdbHttpResponse(200, AIRED_EPISODES_BODY));
+        TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+        Series s = Series.createSeries(770103, "Ciudad del Sol");
+        s.setDisplayNameOverride("stale");
+        provider.getSeriesListing(s);
+        assertEquals("Ciudad del Sol", s.getName(),
+            "override must reset when the translation call fails");
+        assertFalse(s.noEpisodes(), "episodes should still populate despite translation failure");
     }
 }

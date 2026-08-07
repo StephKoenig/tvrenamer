@@ -72,7 +72,7 @@ public class TheTVDBv4Provider implements EpisodeDataProvider {
         int page = 0;
         boolean more = true;
         while (more && page < MAX_PAGES) {
-            String json = client.episodesJson(seriesId, seasonType, page);
+            String json = client.episodesJson(seriesId, seasonType, null, page);
             V4EpisodesPage p = V4Parser.parseEpisodes(json);
             all.addAll(p.episodes());
             more = p.hasNext();

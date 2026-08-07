@@ -90,6 +90,15 @@ public final class V4Parser {
         return new V4EpisodesPage(episodes, hasNext);
     }
 
+    /** Parse the translated series name from a v4 /series/{id}/translations/{lang} response. */
+    public static String parseTranslationName(String json) {
+        JsonObject root = GSON.fromJson(json, JsonObject.class);
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
+            return null;
+        }
+        return str(root.getAsJsonObject("data"), "name");
+    }
+
     /** Return a trimmed string for key, or null if absent/JSON-null/blank. */
     private static String str(JsonObject o, String key) {
         if (o == null || !o.has(key) || o.get(key).isJsonNull()) {

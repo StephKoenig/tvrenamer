@@ -53,4 +53,16 @@ public class V4ParserTest {
         String json = "{\"data\":{\"episodes\":[]},\"links\":{\"next\":null}}";
         assertFalse(V4Parser.parseEpisodes(json).hasNext());
     }
+
+    @Test
+    public void parsesTranslationName() {
+        String json = "{\"status\":\"success\",\"data\":{\"name\":\"Sun City\",\"language\":\"eng\"}}";
+        assertEquals("Sun City", V4Parser.parseTranslationName(json));
+    }
+
+    @Test
+    public void translationNameNullWhenAbsent() {
+        assertNull(V4Parser.parseTranslationName("{\"status\":\"success\",\"data\":{\"language\":\"eng\"}}"));
+        assertNull(V4Parser.parseTranslationName("{\"data\":null}"));
+    }
 }

@@ -34,9 +34,18 @@ public class TvdbV4Client {
         return authedGet("/search?query=" + enc + "&type=series");
     }
 
-    public String episodesJson(int seriesId, String seasonType, int page)
+    public String episodesJson(int seriesId, String seasonType, String lang, int page)
         throws TVRenamerIOException {
-        return authedGet("/series/" + seriesId + "/episodes/" + seasonType + "?page=" + page);
+        String base = "/series/" + seriesId + "/episodes/" + seasonType;
+        if (lang != null && !lang.isBlank()) {
+            base = base + "/" + lang;
+        }
+        return authedGet(base + "?page=" + page);
+    }
+
+    public String seriesTranslationJson(int seriesId, String lang)
+        throws TVRenamerIOException {
+        return authedGet("/series/" + seriesId + "/translations/" + lang);
     }
 
     /** Logs in unconditionally. Callers must hold {@link #loginLock}. */

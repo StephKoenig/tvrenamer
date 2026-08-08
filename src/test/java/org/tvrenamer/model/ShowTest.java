@@ -80,6 +80,42 @@ public class ShowTest {
     }
 
     @Nested
+    @DisplayName("Directory name honours display-name override")
+    class DirNameOverride {
+
+        // getDirName() lives on Show and is inherited unchanged by Series, so a plain
+        // Show exercises the same code path without polluting the static Series registry.
+
+        @Test
+        @DisplayName("getDirName reflects the sanitised override when one is set")
+        void dirNameUsesOverride() {
+            Show show = new Show("dn1", "Ciudad del Sol");
+            show.setDisplayNameOverride("Sun City");
+            assertEquals("Sun City", show.getDirName(),
+                "destination folder should honour the translated (override) name");
+        }
+
+        @Test
+        @DisplayName("getDirName falls back to the original name without an override")
+        void dirNameUsesOriginalWithoutOverride() {
+            Show show = new Show("dn2", "Ciudad del Sol");
+            assertEquals("Ciudad del Sol", show.getDirName(),
+                "without an override the folder uses the original name");
+        }
+
+        @Test
+        @DisplayName("clearing the override reverts getDirName to the original name")
+        void dirNameRevertsWhenOverrideCleared() {
+            Show show = new Show("dn3", "Ciudad del Sol");
+            show.setDisplayNameOverride("Sun City");
+            assertEquals("Sun City", show.getDirName());
+            show.setDisplayNameOverride(null);
+            assertEquals("Ciudad del Sol", show.getDirName(),
+                "clearing the override should revert the folder to the original name");
+        }
+    }
+
+    @Nested
     @DisplayName("Episode management")
     class EpisodeManagement {
 

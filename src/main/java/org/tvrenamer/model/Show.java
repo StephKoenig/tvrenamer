@@ -41,7 +41,6 @@ public class Show extends ShowOption {
      * More instance variables
      */
     final int idNum;
-    private final String dirName;
 
     final Map<String, Episode> episodes;
     private volatile Map<Integer, Season> seasons;
@@ -64,7 +63,6 @@ public class Show extends ShowOption {
      */
     Show(int idNum, String idString, String name) {
         super(idString, name);
-        dirName = StringUtils.sanitiseTitle(name);
 
         this.idNum = idNum;
 
@@ -99,11 +97,16 @@ public class Show extends ShowOption {
      * Get a string representing the Show's name, appropriate for use as a directory
      * name (or anywhere else within a filename).
      *
+     * <p>Derived on demand from {@link #getName()} so that a display-name override
+     * (e.g. a translated series name applied after construction) is reflected in the
+     * destination subdirectory, keeping the folder consistent with the renamed
+     * filename and metadata tags.
+     *
      * @return directory
      *            the name of the show, made appropriate for use within a file path
      */
     public String getDirName() {
-        return dirName;
+        return StringUtils.sanitiseTitle(getName());
     }
 
     /**

@@ -65,4 +65,20 @@ public class V4ParserTest {
         assertNull(V4Parser.parseTranslationName("{\"status\":\"success\",\"data\":{\"language\":\"eng\"}}"));
         assertNull(V4Parser.parseTranslationName("{\"data\":null}"));
     }
+
+    @Test
+    public void translationNameNullOnMalformedBody() {
+        // HTTP 200 with a garbage body must not throw (Gson JsonSyntaxException);
+        // returning null lets the provider clear the override and keep the original name.
+        assertNull(V4Parser.parseTranslationName("not json{"));
+    }
+
+    @Test
+    public void malformedEpisodesBodyYieldsEmptyPage() {
+        // A garbage body must be treated as an empty page (no episodes, no next)
+        // so the provider's dvd->default / language fallbacks still fire.
+        V4EpisodesPage page = V4Parser.parseEpisodes("not json{");
+        assertTrue(page.episodes().isEmpty());
+        assertFalse(page.hasNext());
+    }
 }

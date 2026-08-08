@@ -96,4 +96,38 @@ public class TvdbV4ClientTest {
         TvdbV4Client c = new TvdbV4Client(t, () -> "key");
         assertThrows(TVRenamerIOException.class, () -> c.searchSeriesJson("x"));
     }
+
+    @Test
+    public void episodesUrlIncludesLanguageSegmentWhenProvided() throws Exception {
+        FakeTransport t = new FakeTransport();
+        t.getQueue.add(new TvdbHttpResponse(200, "{\"data\":{\"episodes\":[]}}"));
+        TvdbV4Client c = new TvdbV4Client(t, () -> "key");
+        c.episodesJson(555, "default", "eng", 0);
+        assertTrue(t.calls.stream().anyMatch(
+            s -> s.contains("/series/555/episodes/default/eng?page=0")),
+            "expected language segment in episodes URL; calls=" + t.calls);
+    }
+
+    @Test
+    public void episodesUrlOmitsLanguageSegmentWhenNull() throws Exception {
+        FakeTransport t = new FakeTransport();
+        t.getQueue.add(new TvdbHttpResponse(200, "{\"data\":{\"episodes\":[]}}"));
+        TvdbV4Client c = new TvdbV4Client(t, () -> "key");
+        c.episodesJson(555, "default", null, 0);
+        assertTrue(t.calls.stream().anyMatch(
+            s -> s.contains("/series/555/episodes/default?page=0")
+              && !s.contains("/default/")),
+            "expected no language segment; calls=" + t.calls);
+    }
+
+    @Test
+    public void seriesTranslationUrlIsCorrect() throws Exception {
+        FakeTransport t = new FakeTransport();
+        t.getQueue.add(new TvdbHttpResponse(200, "{\"data\":{\"name\":\"Sun City\",\"language\":\"eng\"}}"));
+        TvdbV4Client c = new TvdbV4Client(t, () -> "key");
+        String json = c.seriesTranslationJson(555, "eng");
+        assertTrue(t.calls.stream().anyMatch(s -> s.contains("/series/555/translations/eng")),
+            "calls=" + t.calls);
+        assertTrue(json.contains("Sun City"));
+    }
 }

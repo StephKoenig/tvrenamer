@@ -100,6 +100,20 @@
     <p>Click <strong>Validate</strong> to check the key against TheTVDB before saving. Validation
     runs in the background and reports success or failure without blocking the dialog.</p>
 
+    <h3>Title Language</h3>
+    <p>Only used when <strong>TheTVDB (v4)</strong> is selected above. Controls the language
+    of the show name and episode titles written into renamed files (the <code>%S</code> and
+    <code>%t</code> tokens). Default is <strong>English</strong>.</p>
+    <ul>
+        <li>Disabled when <strong>TheTVDB (v1)</strong> is selected &mdash; v1 is English-only.</li>
+        <li>If a translation isn't available for the language you choose, TVRenamer falls back
+            to the show's original language rather than leaving the title blank.</li>
+        <li>Some shows have a translated show name but only original-language episode titles
+            &mdash; this is a data-completeness limitation of TheTVDB, not a bug.</li>
+    </ul>
+    <p>Changing this setting affects files matched <em>after</em> the change; it does not
+    retroactively re-translate titles for rows already shown in the table.</p>
+
     <div class="tip">
         <strong>Tip:</strong> If a show you know exists consistently returns "No info", try
         switching providers &mdash; see <a href="troubleshooting.html">Troubleshooting</a>.

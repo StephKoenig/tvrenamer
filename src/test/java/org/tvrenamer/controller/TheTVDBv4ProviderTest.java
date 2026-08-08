@@ -11,6 +11,7 @@ import org.tvrenamer.model.Series;
 import org.tvrenamer.model.ShowName;
 import org.tvrenamer.model.ShowOption;
 import org.tvrenamer.model.TVRenamerIOException;
+import org.tvrenamer.model.TitleLanguage;
 import org.tvrenamer.model.UserPreferences;
 
 public class TheTVDBv4ProviderTest {
@@ -43,6 +44,13 @@ public class TheTVDBv4ProviderTest {
             }
         };
         return new TvdbV4Client(t, () -> "key");
+    }
+
+    /** Client whose GET responses are decided per-URL substring (episodes vs. translations);
+     *  always answers with HTTP 200. Built atop {@link #clientForListing} so both helpers
+     *  share one fake-transport implementation. */
+    private static TvdbV4Client scriptedClient(Function<String, String> byUrl) {
+        return clientForListing(u -> new TvdbHttpResponse(200, byUrl.apply(u)));
     }
 
     /** Run {@code body} with the DVD-order preference forced on, then restore it. */
@@ -115,5 +123,56 @@ public class TheTVDBv4ProviderTest {
         Series series = Series.createSeries(990203, "Hard Failure");
         withPreferDvd(() ->
             assertThrows(TVRenamerIOException.class, () -> provider.getSeriesListing(series)));
+    }
+
+    @Test
+    public void setsTranslatedSeriesNameOverride() throws Exception {
+        UserPreferences.getInstance().setTitleLanguage(TitleLanguage.ENGLISH);
+        try {
+            TvdbV4Client c = scriptedClient(u -> {
+                if (u.contains("/translations/")) {
+                    return "{\"data\":{\"name\":\"Sun City\",\"language\":\"eng\"}}";
+                }
+                return "{\"data\":{\"episodes\":[]}}";
+            });
+            TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+            Series s = Series.createSeries(770101, "Ciudad del Sol");
+            provider.getSeriesListing(s);
+            assertEquals("Sun City", s.getName());
+        } finally {
+            UserPreferences.getInstance().setTitleLanguage(TitleLanguage.ENGLISH);
+        }
+    }
+
+    @Test
+    public void clearsOverrideWhenTranslationMissing() throws Exception {
+        TvdbV4Client c = scriptedClient(u ->
+            u.contains("/translations/")
+                ? "{\"data\":{\"language\":\"eng\"}}"     // no name
+                : "{\"data\":{\"episodes\":[]}}");
+        TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+        Series s = Series.createSeries(770102, "Ciudad del Sol");
+        s.setDisplayNameOverride("stale");
+        provider.getSeriesListing(s);
+        assertEquals("Ciudad del Sol", s.getName(), "override must reset when no translation");
+    }
+
+    @Test
+    public void translationCallFailureLeavesOverrideCleared() throws Exception {
+        // Regression: unlike clearsOverrideWhenTranslationMissing (200 OK, no "name" key),
+        // this makes the translations call itself fail (non-200), which TvdbV4Client surfaces
+        // as a TVRenamerIOException. The reset-then-set order in getSeriesListing must still
+        // leave a pre-seeded stale override cleared, and episode fetching must be unaffected.
+        TvdbV4Client c = clientForListing(u ->
+            u.contains("/translations/")
+                ? new TvdbHttpResponse(404, "")
+                : new TvdbHttpResponse(200, AIRED_EPISODES_BODY));
+        TheTVDBv4Provider provider = new TheTVDBv4Provider(c);
+        Series s = Series.createSeries(770103, "Ciudad del Sol");
+        s.setDisplayNameOverride("stale");
+        provider.getSeriesListing(s);
+        assertEquals("Ciudad del Sol", s.getName(),
+            "override must reset when the translation call fails");
+        assertFalse(s.noEpisodes(), "episodes should still populate despite translation failure");
     }
 }

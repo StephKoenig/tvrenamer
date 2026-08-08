@@ -3,6 +3,7 @@ package org.tvrenamer.controller.tvdb;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import org.tvrenamer.model.EpisodeInfo;
@@ -59,7 +60,15 @@ public final class V4Parser {
     public static V4EpisodesPage parseEpisodes(String json) {
         List<EpisodeInfo> episodes = new ArrayList<>();
         boolean hasNext = false;
-        JsonObject root = GSON.fromJson(json, JsonObject.class);
+        JsonObject root;
+        try {
+            root = GSON.fromJson(json, JsonObject.class);
+        } catch (JsonSyntaxException e) {
+            // Malformed body (e.g. HTTP 200 with garbage): treat as an empty
+            // page so the provider's dvd->default / language fallbacks proceed
+            // instead of the whole listing failing.
+            return new V4EpisodesPage(episodes, false);
+        }
         if (root != null && root.has("data") && root.get("data").isJsonObject()) {
             JsonObject data = root.getAsJsonObject("data");
             if (data.has("episodes") && data.get("episodes").isJsonArray()) {
@@ -88,6 +97,22 @@ public final class V4Parser {
             hasNext = next != null && !next.isJsonNull();
         }
         return new V4EpisodesPage(episodes, hasNext);
+    }
+
+    /** Parse the translated series name from a v4 /series/{id}/translations/{lang} response. */
+    public static String parseTranslationName(String json) {
+        JsonObject root;
+        try {
+            root = GSON.fromJson(json, JsonObject.class);
+        } catch (JsonSyntaxException e) {
+            // Malformed body: no translation -> caller clears the override and
+            // keeps the original series name.
+            return null;
+        }
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
+            return null;
+        }
+        return str(root.getAsJsonObject("data"), "name");
     }
 
     /** Return a trimmed string for key, or null if absent/JSON-null/blank. */

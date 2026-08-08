@@ -1839,7 +1839,9 @@ public final class ResultsTable
             case CLEANUP_DUPLICATES:
             case TAG_VIDEO_METADATA:
             case TVDB_V4_API_KEY:
+            case TITLE_LANGUAGE:
                 // These changes don't require an immediate table update here
+                // (title language applies to files matched after the change)
                 break;
         }
     }

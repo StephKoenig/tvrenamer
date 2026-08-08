@@ -811,6 +811,61 @@ Completes the code improvement opportunities document (all 24 items done).
     guard / in-flight disable on the Validate button (rapid double-clicks can theoretically
     show a stale result if two validations race).
 
+### 59) Selectable Title language for v4 show names and episode titles
+- **Why:** Under the v4 provider, `%S`/`%t` previously always rendered in the show's
+  primary catalog language — e.g. a series catalogued in a non-English language stayed
+  in that language even for users who wanted English output. TheTVDB v4 supports
+  per-language translations for both the series name and episode titles, so a
+  user-selectable **Title language** closes that gap without touching matching (which
+  is already language-agnostic).
+- **Where:** `org.tvrenamer.model.TitleLanguage` (new enum), `UserPreferences`
+  (`titleLanguage` preference) + `UserPreferencesPersistence` + `UserPreference` enum,
+  `org.tvrenamer.controller.tvdb.TvdbV4Client` (`episodesJson(id, seasonType, lang, page)`
+  language segment + new `seriesTranslationJson(id, lang)`), `V4Parser.parseTranslationName`
+  (new), `org.tvrenamer.model.ShowOption`/`Show` (`displayNameOverride` field +
+  `setDisplayNameOverride`, read by the existing `getName()`), `TheTVDBv4Provider`
+  (`getSeriesListing`) wiring, `PreferencesDialog` (General tab, "Title language" combo),
+  `docs/TVDB v4 Title Language Spec.md`.
+- **What we did:**
+  - Added `TitleLanguage` enum (15 languages, English first/default) modelled on
+    `ThemeMode`/`EpisodeDataProviderType`: `toString()` is the display label, `code()`
+    is the ISO 639-2/T code sent to the API, `fromString(...)` is case-insensitive and
+    matches on name, label, or code.
+  - Added the `titleLanguage` preference (default `ENGLISH`), persisted the same way as
+    `themeMode`.
+  - Threaded the language code into the v4 episode-listing request
+    (`/series/{id}/episodes/{seasonType}/{lang}?page=N`); a failing or empty
+    language-qualified request falls back to the same season-type without the language
+    segment (same pattern as the existing DVD→default season-type fallback).
+  - Added `TvdbV4Client.seriesTranslationJson(id, lang)` (`GET
+    /series/{id}/translations/{lang}`) and `V4Parser.parseTranslationName` to extract the
+    translated series name.
+  - Added a nullable `displayNameOverride` to `ShowOption`/`Show`: `getName()` returns
+    the override when set, otherwise the original name — the single read point for `%S`,
+    so no formatter change was needed. `TheTVDBv4Provider.getSeriesListing` resets the
+    override first (so a stale value can't leak via the cached `Series` in
+    `KNOWN_SERIES`), then fetches the translated name for every resolved series
+    (unconditionally, English included) and applies it as the override when a
+    non-blank name is returned; otherwise the override stays cleared and the
+    original name is used.
+  - Added a "Title language" dropdown to the Preferences → General → TV data provider
+    group, populated from `TitleLanguage.values()`, enabled only while the v4 provider is
+    selected (mirrors the existing API-key field enable/disable), and round-tripped on
+    open/save the same way as the provider combo.
+  - Deliberately did **not** wire `TITLE_LANGUAGE` into `ResultsTable`'s re-match-on-
+    preference-change logic: the new language applies to files matched after the change,
+    not retroactively to already-resolved rows (episode listings are cached per `Series`,
+    so a live refresh would need to invalidate that cache and the display-name override
+    together — deferred, see `docs/TODO.md`).
+  - Documented the setting in `preferences.html`, `troubleshooting.html`, and `README.md`.
+- **Notes:**
+  - v1 is untouched — it stays fixed to English (`/all/en.xml`) and the dropdown is
+    disabled when v1 is selected.
+  - Episode-level translations are sparser than series-level on TheTVDB: some shows have
+    a translated show name but only original-language episode titles. This is TheTVDB
+    data completeness, not a bug.
+  - Spec: `docs/TVDB v4 Title Language Spec.md`.
+
 ---
 
 ## Related records

@@ -39,8 +39,11 @@ under the v4 provider.
 
 ## Decisions (settled with the user)
 - The setting governs **both** the show name (`%S`) and episode titles (`%t`).
-- **Default is English (`eng`)** — so English-primary shows behave exactly as
-  today; the feature is a no-op unless the user opts into another language.
+- **Default is English (`eng`)**. The translation is fetched for every resolved
+  series regardless of language (English included) and applied when non-blank —
+  there is no skip. English-primary shows are visually unchanged (the English
+  translation equals the original), but non-English-primary shows now render in
+  English by default, which is the feature's intent.
 - Graceful fallback to the show's primary/default language when a translation
   is unavailable — never a blank title.
 - v4-only; v1 untouched.
@@ -188,8 +191,8 @@ Spanish primary name and an English translation, both invented):
 
 ## Risks / counterpoints
 - **Extra API call per resolved series** (the translations fetch). Bounded (one
-  per series, cached by `Series`); acceptable, and skipped when the language
-  equals the default.
+  per series, cached by `Series`) and issued unconditionally for every resolved
+  series regardless of language — never skipped; an accepted cost.
 - **New mutable field on an otherwise-immutable `ShowOption`/`Show`.** Kept
   minimal (one nullable override + setter) and made safe by the reset-on-every-
   listings-fetch discipline; still a small departure from the current immutable

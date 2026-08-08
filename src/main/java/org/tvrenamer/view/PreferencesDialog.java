@@ -55,6 +55,7 @@ import org.tvrenamer.model.ShowName;
 import org.tvrenamer.model.ShowOption;
 import org.tvrenamer.model.ShowSelectionEvaluator;
 import org.tvrenamer.model.ThemeMode;
+import org.tvrenamer.model.TitleLanguage;
 import org.tvrenamer.model.UserPreferences;
 
 class PreferencesDialog extends Dialog {
@@ -252,6 +253,7 @@ class PreferencesDialog extends Dialog {
     private Text tvdbV4KeyText;
     private Button tvdbV4ValidateButton;
     private Label tvdbV4ValidateStatus;
+    private Combo titleLanguageCombo;
 
     // Matching (Overrides + Disambiguations)
     // Overrides (Extracted show -> replacement show text)
@@ -851,6 +853,15 @@ class PreferencesDialog extends Dialog {
         // The user editing the key invalidates any prior green/red validation tint.
         tvdbV4KeyText.addListener(SWT.Modify, e -> resetTvdbV4KeyValidationTint());
         providerCombo.addListener(SWT.Selection, e -> updateProviderControlsEnabled());
+
+        createLabel(TITLE_LANGUAGE_LABEL_TEXT, TITLE_LANGUAGE_TOOLTIP, generalGroup);
+        titleLanguageCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
+        titleLanguageCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
+        titleLanguageCombo.setToolTipText(TITLE_LANGUAGE_TOOLTIP);
+        for (TitleLanguage t : TitleLanguage.values()) {
+            titleLanguageCombo.add(t.toString());
+        }
+        ThemeManager.applyPalette(titleLanguageCombo, themePalette);
     }
 
     private void initializeGeneralControls() {
@@ -894,6 +905,10 @@ class PreferencesDialog extends Dialog {
 
         int provIdx = providerCombo.indexOf(prefs.getEpisodeDataProvider().toString());
         providerCombo.select(provIdx >= 0 ? provIdx : 0);
+
+        int langIdx = titleLanguageCombo.indexOf(prefs.getTitleLanguage().toString());
+        titleLanguageCombo.select(langIdx >= 0 ? langIdx : 0);
+
         updateProviderControlsEnabled();
 
         initializeSubtitleControls();
@@ -904,6 +919,7 @@ class PreferencesDialog extends Dialog {
             .equals(providerCombo.getText());
         tvdbV4KeyText.setEnabled(v4);
         tvdbV4ValidateButton.setEnabled(v4);
+        titleLanguageCombo.setEnabled(v4);
         // Switching providers makes any prior validation result stale.
         resetTvdbV4KeyValidationTint();
     }
@@ -2147,6 +2163,9 @@ class PreferencesDialog extends Dialog {
         prefs.setEpisodeDataProvider(
             provider == null ? EpisodeDataProviderType.TVDB_V1 : provider);
         prefs.setTvdbV4ApiKey(tvdbV4KeyText.getText());
+
+        TitleLanguage titleLang = TitleLanguage.fromString(titleLanguageCombo.getText());
+        prefs.setTitleLanguage(titleLang == null ? TitleLanguage.ENGLISH : titleLang);
 
         // Show name overrides (exact match, case-insensitive)
         // Note: column 0 is the status icon column; values are in columns 1 and 2.

@@ -93,6 +93,16 @@ three items intentionally deferred rather than gold-plated:
 
 **Effort:** Small (each item independently)
 
+### Title language live refresh (v4 provider)
+**Context:** The v4 Title language setting (`docs/Completed.md` #59) applies only to
+files matched after the setting changes — already-loaded rows are not retroactively
+re-translated. Episode listings are cached per `Series`, so a live refresh would need
+to invalidate both the `Series` listings cache and the display-name override for
+affected rows before re-issuing language-qualified fetches.
+**Action:** Live retroactive re-translation of already-loaded rows when Title language
+changes (needs Series listings-cache + display-name-override invalidation).
+**Effort:** Medium
+
 ---
 
 ## Backlog suggestions / how to use this file

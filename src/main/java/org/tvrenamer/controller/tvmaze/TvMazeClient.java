@@ -58,6 +58,8 @@ public class TvMazeClient {
                     "TVMaze request failed (HTTP " + resp.status() + "): " + path);
             }
             return resp.body();
+        } catch (TVRenamerIOException tve) {
+            throw tve;
         } catch (IOException e) {
             throw new TVRenamerIOException("TVMaze request error: " + e.getMessage(), e);
         }

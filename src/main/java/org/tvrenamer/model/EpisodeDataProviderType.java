@@ -2,9 +2,9 @@ package org.tvrenamer.model;
 
 import java.util.Locale;
 
-/** Which TheTVDB API TVRenamer uses to look up shows and episodes. */
+/** Which episode-data provider TVRenamer uses (TVMaze or TheTVDB v4). */
 public enum EpisodeDataProviderType {
-    TVDB_V1("TheTVDB (v1)"),
+    TVMAZE("TVMaze"),
     TVDB_V4("TheTVDB (v4)");
 
     private final String label;

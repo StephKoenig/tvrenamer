@@ -10,12 +10,12 @@ public class TvdbProvidersTest {
     public void selectorFollowsPreference() {
         UserPreferences p = UserPreferences.getInstance();
         try {
-            p.setEpisodeDataProvider(EpisodeDataProviderType.TVDB_V1);
-            assertTrue(TvdbProviders.current() instanceof TheTVDBLegacyProvider);
+            p.setEpisodeDataProvider(EpisodeDataProviderType.TVMAZE);
+            assertTrue(TvdbProviders.current() instanceof TvMazeProvider);
             p.setEpisodeDataProvider(EpisodeDataProviderType.TVDB_V4);
             assertTrue(TvdbProviders.current() instanceof TheTVDBv4Provider);
         } finally {
-            p.setEpisodeDataProvider(EpisodeDataProviderType.TVDB_V1);
+            p.setEpisodeDataProvider(EpisodeDataProviderType.TVMAZE);
         }
     }
 }

@@ -129,7 +129,7 @@ public class UserPreferences {
         renameReplacementMask = DEFAULT_REPLACEMENT_MASK;
         checkForUpdates = true;
         themeMode = ThemeMode.LIGHT;
-        episodeDataProvider = EpisodeDataProviderType.TVDB_V1;
+        episodeDataProvider = EpisodeDataProviderType.TVMAZE;
         tvdbV4ApiKey = "";
         titleLanguage = TitleLanguage.ENGLISH;
         recursivelyAddFolders = true;
@@ -253,7 +253,7 @@ public class UserPreferences {
         if (val != null) {
             EpisodeDataProviderType t = EpisodeDataProviderType.fromString(val);
             p.episodeDataProvider =
-                (t == null) ? EpisodeDataProviderType.TVDB_V1 : t;
+                (t == null) ? EpisodeDataProviderType.TVMAZE : t;
         }
         val = scalars.get("tvdbV4ApiKey");
         if (val != null) {
@@ -698,13 +698,13 @@ public class UserPreferences {
     }
 
     /**
-     * Set the episode data provider. Null inputs default to TVDB_V1.
+     * Set the episode data provider. Null inputs default to TVMAZE.
      *
      * @param type the desired EpisodeDataProviderType
      */
     public void setEpisodeDataProvider(EpisodeDataProviderType type) {
         EpisodeDataProviderType resolved =
-            (type == null) ? EpisodeDataProviderType.TVDB_V1 : type;
+            (type == null) ? EpisodeDataProviderType.TVMAZE : type;
         if (valuesAreDifferent(this.episodeDataProvider, resolved)) {
             this.episodeDataProvider = resolved;
             preferenceChanged(UserPreference.EPISODE_DATA_PROVIDER);

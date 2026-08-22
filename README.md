@@ -53,7 +53,7 @@ The screenshot currently references the upstream wiki:
 
 ### Data providers
 TVRenamer looks up shows and episodes via a selectable provider (Preferences → General → **TV data provider**):
- * **TheTVDB (v1)** - the default. Keyless, no setup required.
+ * **TVMaze** - the default. Keyless, no setup required.
  * **TheTVDB (v4)** - an alternative provider. Requires a personal API key (free, from [thetvdb.com](https://thetvdb.com/)) pasted into Preferences, with a **Validate** button to confirm it works before saving.
  * **Title language** (v4 only): a selectable language for the output show name and episode titles (`%S`/`%t`), default English. Falls back to the show's original language when a translation isn't available.
 

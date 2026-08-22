@@ -182,6 +182,22 @@ public class ShowName {
     }
 
     /**
+     * Clear the query-string -&gt; ShowName cache (called on a provider switch).
+     *
+     * Clearing {@code QueryString.QUERY_STRINGS} alone is not enough: each cached
+     * {@link ShowName} holds a direct, final reference to the {@link QueryString}
+     * it was built with, and that {@code QueryString} carries the previous
+     * provider's matched show.  So {@code SHOW_NAMES} must also be cleared here,
+     * or {@link #mapShowName} would keep returning the old {@code ShowName}
+     * instance -- and with it, the stale cross-provider match -- instead of
+     * rebuilding a fresh one that forces a re-query under the new provider.
+     */
+    public static void clearAllQueryCache() {
+        QueryString.QUERY_STRINGS.clear();
+        SHOW_NAMES.clear();
+    }
+
+    /**
      * A mapping from Strings to ShowName objects.  This is potentially a
      * many-to-one relationship.
      */

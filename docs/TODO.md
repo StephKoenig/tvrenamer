@@ -72,14 +72,16 @@ paths, with Windows-specific cases (case differences, mixed separators).
 - If async, design a listener contract that supports partial updates and finalization.
 
 ### TheTVDB v4 provider follow-ups
-**Context:** The switchable TheTVDB v1/v4 provider (`docs/Completed.md` #58) shipped with
-three items intentionally deferred rather than gold-plated:
+**Context:** The switchable data-provider feature (`docs/Completed.md` #58, since
+updated to TVMaze/TheTVDB v4 by #60) shipped with three items intentionally deferred
+rather than gold-plated:
 
 - **Diagnosability nudge for a degraded provider.** Today, a provider whose search
-  returns empty for every query (the exact v1 outage that motivated this feature) is
-  only explained via a static help-page note (`troubleshooting.html`). Consider detecting
-  the pattern in-app (e.g. N consecutive empty-search rows) and surfacing a one-time
-  suggestion to try the other provider, instead of relying on the user to find the help page.
+  returns empty for every query (the kind of silent index outage that motivated this
+  feature originally) is only explained via a static help-page note
+  (`troubleshooting.html`). Consider detecting the pattern in-app (e.g. N consecutive
+  empty-search rows) and surfacing a one-time suggestion to try the other provider,
+  instead of relying on the user to find the help page.
 - **Pagination cap logging.** `TheTVDBv4Provider.fetchAll()` stops at `MAX_PAGES = 20`
   (`org.tvrenamer.controller.TheTVDBv4Provider`) as a safety cap. If a series genuinely has
   more than 20 pages of episodes, listings are silently truncated. Add a log line (and/or a
@@ -92,6 +94,19 @@ three items intentionally deferred rather than gold-plated:
   match the existing pattern.
 
 **Effort:** Small (each item independently)
+
+### TVMaze rate limit on very large batches
+**Context:** TVMaze (`docs/Completed.md` #60, the default provider) rate-limits
+unauthenticated traffic to roughly 20 requests/10s. `TvMazeClient` retries a single
+HTTP 429 once with a short backoff, which is enough for occasional bursts, but a very
+large batch (hundreds of distinct shows added at once) could still exhaust the retry
+and surface individual rows as failed lookups rather than transparently pacing
+requests to stay under the limit.
+**Action:** If large-batch users report failures, consider a request-pacing/queueing
+layer in front of `TvMazeClient` (or a longer backoff/second retry) instead of the
+current single-retry-then-fail behavior. Known limitation for now, not yet reported
+as an actual problem.
+**Effort:** Small/Medium
 
 ### Title language live refresh (v4 provider)
 **Context:** The v4 Title language setting (`docs/Completed.md` #59) applies only to

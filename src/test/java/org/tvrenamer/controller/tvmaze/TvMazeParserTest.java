@@ -55,4 +55,15 @@ public class TvMazeParserTest {
         assertEquals("2", eps.get(0).seasonNumber);
         assertTrue(TvMazeParser.parseEpisodes("not json[").isEmpty());
     }
+
+    @Test
+    public void episodesSkipMissingId() {
+        // entry with no id -> skipped (guards against a null ConcurrentHashMap key);
+        // the valid entry is still returned.
+        String json = "[{\"season\":1,\"number\":1,\"name\":\"No id\",\"airdate\":\"2019-05-05\"},"
+            + "{\"id\":2,\"season\":1,\"number\":2,\"name\":\"Ok\",\"airdate\":\"2019-05-12\"}]";
+        List<EpisodeInfo> eps = TvMazeParser.parseEpisodes(json);
+        assertEquals(1, eps.size());
+        assertEquals("2", eps.get(0).episodeId);
+    }
 }

@@ -64,13 +64,14 @@ public final class TvMazeParser {
                 continue;
             }
             JsonObject e = el.getAsJsonObject();
+            String id = intAsString(e, "id");
             String season = intAsString(e, "season");
             String number = intAsString(e, "number");
-            if (season == null || number == null) {
+            if (id == null || season == null || number == null) {
                 continue;
             }
             out.add(new EpisodeInfo.Builder()
-                .episodeId(intAsString(e, "id"))
+                .episodeId(id)
                 .seasonNumber(season)
                 .episodeNumber(number)
                 .episodeName(str(e, "name"))

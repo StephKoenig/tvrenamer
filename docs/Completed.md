@@ -866,6 +866,61 @@ Completes the code improvement opportunities document (all 24 items done).
     data completeness, not a bug.
   - Spec: `docs/TVDB v4 Title Language Spec.md`.
 
+### 60) TVMaze as the default (keyless) provider; v1 removed
+- **Why:** TheTVDB v1's name-search outage (`docs/Completed.md` #58) was the original
+  motivation for a switchable provider, but v1 still required no key while v4 did — so
+  the "no setup" default was tied to the very provider most likely to silently fail
+  again. TVMaze (`api.tvmaze.com`) offers a keyless search + episode-listing API with
+  its own id namespace, so we added it as a third provider, made it the new default,
+  and retired v1 (dead weight once TVMaze covers the keyless use case, and one less
+  provider surface to keep correct).
+- **Where:** `org.tvrenamer.controller.tvmaze.TvMazeClient` (new, keyless HTTP client),
+  `org.tvrenamer.controller.tvmaze.TvMazeParser` (new, pure JSON→model parsing),
+  `org.tvrenamer.controller.TvMazeProvider` (new `EpisodeDataProvider` implementation),
+  `org.tvrenamer.model.EpisodeDataProviderType` (`TVMAZE` replaces `TVDB_V1`),
+  `UserPreferences` (default provider + null-fallback), `org.tvrenamer.model.Series`
+  (`clearKnownSeries`), `org.tvrenamer.model.ShowName` (`clearAllQueryCache`),
+  `ResultsTable` (wires the cache clears into the existing provider-switch re-match),
+  `TvdbProviders` (selector now returns `TvMazeProvider` for `TVMAZE`); removed
+  `TheTVDBProvider`/`TheTVDBLegacyProvider` and their now-unused v1 constants in
+  `org.tvrenamer.model.util.Constants`.
+- **What we did:**
+  - `TvMazeClient` calls `/search/shows?q=...` and `/shows/{id}/episodes` with no
+    auth header. TVMaze rate-limits unauthenticated traffic to roughly 20
+    requests/10s; on an HTTP 429 response the client sleeps briefly and retries the
+    same request exactly once before giving up.
+  - `TvMazeParser` turns the search-shows and episodes JSON into the existing
+    `ShowOption`/`EpisodeInfo` shapes (Gson-backed, no I/O), matching the pattern
+    already used by `V4Parser` for TheTVDB v4.
+  - `TvMazeProvider` implements `EpisodeDataProvider`: `getShowOptions` clears and
+    repopulates a `ShowName`'s options from search results; `getSeriesListing` fetches
+    and parses the full episode list in one call (TVMaze has no pagination or DVD
+    season-type — `series.setPreferDvd(false)` is forced).
+  - `EpisodeDataProviderType.TVDB_V1` was replaced with `TVMAZE`; `UserPreferences`'s
+    default and null-fallback both now resolve to `TVMAZE` instead of `TVDB_V1`.
+  - TVMaze and TheTVDB use different id namespaces, so a provider switch must not
+    let ids or query-string matches from one provider leak into the other. Added
+    `Series.clearKnownSeries()` (clears the id → `Series` cache) and
+    `ShowName.clearAllQueryCache()` (clears both the query-string cache and the
+    `ShowName` cache — the latter is necessary because each cached `ShowName` holds
+    a direct reference to a `QueryString` carrying the old provider's matched show).
+    Both are called from `ResultsTable`'s existing provider-switch handler, right
+    before the automatic re-match of previously-unfound rows.
+  - Deleted `TheTVDBProvider` and `TheTVDBLegacyProvider` (the v1 code path and its
+    wrapper) along with their dedicated test suite, and removed the v1-only
+    constants they used from `org.tvrenamer.model.util.Constants`.
+  - Updated `preferences.html`, `troubleshooting.html`, and `README.md` to describe
+    the new TVMaze/TheTVDB (v4) lineup and removed all v1 references from user-facing
+    docs.
+- **Notes:**
+  - This is a one-way migration: any persisted preference with the old `TVDB_V1`
+    value falls back to `TVMAZE` on load (same null-fallback path as an unrecognized
+    value), not to an error or a v4 default.
+  - TVMaze's ~20 requests/10s rate limit with a single 429 retry is a known
+    limitation for very large batches — tracked in `docs/TODO.md`.
+  - Title language remains v4-only; TVMaze has no translation endpoint, so its
+    titles are always English.
+
 ---
 
 ## Related records

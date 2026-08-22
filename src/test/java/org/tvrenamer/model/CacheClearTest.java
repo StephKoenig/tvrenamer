@@ -34,4 +34,13 @@ public class CacheClearTest {
         // A fresh mapping after clear returns a usable ShowName.
         assertNotNull(ShowName.mapShowName("solar drift"));
     }
+
+    @Test
+    public void clearAllQueryCacheDiscardsCachedShowNameInstances() {
+        ShowName before = ShowName.mapShowName("solar drift");
+        ShowName.clearAllQueryCache();
+        ShowName after = ShowName.mapShowName("solar drift");
+        assertNotSame(before, after,
+            "clearAllQueryCache must discard cached ShowName instances so a re-lookup rebuilds");
+    }
 }

@@ -181,6 +181,11 @@ public class ShowName {
         }
     }
 
+    /** Clear the query-string -> ShowName cache (called on a provider switch). */
+    public static void clearAllQueryCache() {
+        QueryString.QUERY_STRINGS.clear();
+    }
+
     /**
      * A mapping from Strings to ShowName objects.  This is potentially a
      * many-to-one relationship.

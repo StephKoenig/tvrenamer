@@ -57,6 +57,15 @@ public class Series extends Show {
         return KNOWN_SERIES.get(idString);
     }
 
+    /**
+     * Clear the id -&gt; Series cache. Called on a provider switch so ids from a
+     * different provider's namespace cannot collide with (or be wrongly reused
+     * from) the previous provider.
+     */
+    public static void clearKnownSeries() {
+        KNOWN_SERIES.clear();
+    }
+
     /*
      * Instance data
      */

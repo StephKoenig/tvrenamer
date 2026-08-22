@@ -11,13 +11,13 @@
 
     <h1>Show Matching</h1>
 
-    <p>TVRenamer extracts show names from filenames and looks them up on TheTVDB. This page explains how to handle matching issues.</p>
+    <p>TVRenamer extracts show names from filenames and looks them up with the selected data provider (TVMaze by default, or TheTVDB v4). This page explains how to handle matching issues.</p>
 
     <h2>How Matching Works</h2>
     <ol>
         <li>TVRenamer extracts the show name from the filename</li>
         <li>It normalizes the name (removes punctuation, converts to lowercase)</li>
-        <li>It searches TheTVDB for matching shows</li>
+        <li>It searches the selected data provider for matching shows</li>
         <li>Results are matched against your files</li>
     </ol>
 
@@ -68,7 +68,7 @@
     </table>
 
     <h2>Show Disambiguation</h2>
-    <p>When TheTVDB returns multiple shows matching your search, TVRenamer prompts you to choose the correct one.</p>
+    <p>When the data provider returns multiple shows matching your search, TVRenamer prompts you to choose the correct one.</p>
 
     <h3>Disambiguation Dialog</h3>
     <p>The dialog shows candidate shows sorted by match confidence:</p>
@@ -76,7 +76,7 @@
         <li><strong>Show name</strong> - The official title. The best match is marked with
             <strong>&starf; Recommended</strong> and a similarity percentage when confidence is high.</li>
         <li><strong>Year</strong> - First aired year (helps distinguish reboots)</li>
-        <li><strong>TVDB ID</strong> - Unique identifier</li>
+        <li><strong>Provider ID</strong> - Unique identifier from the data provider</li>
         <li><strong>Aliases</strong> - Alternative names</li>
     </ul>
 
@@ -107,11 +107,16 @@
     <p>When a show can't be found, the Proposed File Path column displays a
        <em>"click to set Hint"</em> link. Click it to jump straight to the
        Preferences Matching tab with the show name pre-filled, then type the
-       correct TheTVDB name and save.</p>
+       correct show name and save.</p>
     <p>Other things to try:</p>
     <ul>
         <li>Check the spelling in your filename</li>
-        <li>Search <a href="https://thetvdb.com">TheTVDB</a> directly to verify the show exists and find its exact name</li>
+        <li>Search your data provider directly to verify the show exists and find its exact name
+            (<a href="https://www.tvmaze.com/" target="_blank">TVMaze</a> or
+            <a href="https://thetvdb.com/" target="_blank">TheTVDB</a>)</li>
+        <li>If a show you know exists keeps coming back as not found, the active provider's search may be
+            degraded &mdash; try switching providers in Preferences (see
+            <a href="troubleshooting.html">Troubleshooting</a>)</li>
     </ul>
 
     <h3>Wrong Show Selected</h3>

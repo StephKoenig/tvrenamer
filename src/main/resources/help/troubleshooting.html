@@ -61,12 +61,15 @@
     <h4>Filename Too Short</h4>
     <p>Filenames need enough characters to contain show name + episode numbers.</p>
 
-    <h3>Show Not Found on TheTVDB</h3>
+    <h3>Show Not Found</h3>
     <ul>
-        <li>Verify the show exists on <a href="https://thetvdb.com/" target="_blank">thetvdb.com</a></li>
+        <li>Verify the show exists on your data provider
+            (<a href="https://www.tvmaze.com/" target="_blank">TVMaze</a> or
+            <a href="https://thetvdb.com/" target="_blank">TheTVDB</a>)</li>
         <li>Check for spelling differences</li>
         <li>Add a <a href="show-matching.html">show override</a> with the correct name</li>
         <li>Some shows use different names internationally</li>
+        <li>If you're sure it exists, try switching the data provider in Preferences (see below)</li>
     </ul>
 
     <h4>"No info" for a Show You Know Exists</h4>
@@ -114,16 +117,16 @@
 
     <h3>Network / Connection Issues</h3>
 
-    <h4>Cannot Connect to TheTVDB</h4>
+    <h4>Cannot Connect to the Data Provider</h4>
     <ul>
         <li>Check your internet connection</li>
         <li>Verify HTTPS traffic is not blocked by firewall</li>
-        <li>TheTVDB may be temporarily unavailable</li>
+        <li>The provider (TVMaze or TheTVDB) may be temporarily unavailable &mdash; try the other one in Preferences</li>
     </ul>
 
     <h4>Slow Lookups</h4>
     <ul>
-        <li>TheTVDB API can be slow during high traffic</li>
+        <li>The provider's API can be slow during high traffic (TVMaze is also rate-limited, so very large batches may pause briefly)</li>
         <li>First lookup for a show is slower (subsequent lookups are cached)</li>
     </ul>
 

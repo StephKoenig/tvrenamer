@@ -20,7 +20,7 @@ The screenshot currently references the upstream wiki:
 
 ## Features
 ### Core
- * Rename many different shows at once using information from [TheTVDB](http://thetvdb.com/)
+ * Rename many different shows at once using information from an online TV database ([TVMaze](https://www.tvmaze.com/) by default, or [TheTVDB](https://thetvdb.com/) v4)
  * Customise the format and content of the resulting filename
  * Native look & feel for your operating system (SWT)
  * Drag & Drop or standard 'add file' interface

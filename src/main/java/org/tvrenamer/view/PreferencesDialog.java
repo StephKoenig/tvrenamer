@@ -2161,7 +2161,7 @@ class PreferencesDialog extends Dialog {
         EpisodeDataProviderType provider =
             EpisodeDataProviderType.fromString(providerCombo.getText());
         prefs.setEpisodeDataProvider(
-            provider == null ? EpisodeDataProviderType.TVDB_V1 : provider);
+            provider == null ? EpisodeDataProviderType.TVMAZE : provider);
         prefs.setTvdbV4ApiKey(tvdbV4KeyText.getText());
 
         TitleLanguage titleLang = TitleLanguage.fromString(titleLanguageCombo.getText());

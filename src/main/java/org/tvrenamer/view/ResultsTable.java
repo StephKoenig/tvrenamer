@@ -1825,6 +1825,10 @@ public final class ResultsTable
                 // provider. Forget each row's cached failure first so the new
                 // provider is actually queried (the query string is unchanged by
                 // the switch, so the old cached failure would otherwise win).
+                // Provider ids live in different namespaces; drop cross-provider
+                // caches so a switch can't reuse or collide with the old provider.
+                Series.clearKnownSeries();
+                ShowName.clearAllQueryCache();
                 rematchRows(FileEpisode::isShowUnfound, true);
                 break;
             case IGNORE_REGEX:

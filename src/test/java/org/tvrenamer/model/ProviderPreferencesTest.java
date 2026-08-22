@@ -16,12 +16,12 @@ public class ProviderPreferencesTest {
     public void resetProviderPreferences() {
         // Prevent cross-test pollution of the shared preferences singleton.
         UserPreferences p = UserPreferences.getInstance();
-        p.setEpisodeDataProvider(EpisodeDataProviderType.TVDB_V1);
+        p.setEpisodeDataProvider(EpisodeDataProviderType.TVMAZE);
         p.setTvdbV4ApiKey("");
     }
 
     @Test
-    public void defaultsToV1AndEmptyKey() {
+    public void defaultsToTvMazeAndEmptyKey() {
         // Build a fresh instance from empty parsed-XML inputs, rather than using
         // UserPreferences.getInstance(), which lazily loads the machine's real
         // ~/.tvrenamer/prefs.xml and would reflect whatever the user last saved
@@ -33,8 +33,8 @@ public class ProviderPreferencesTest {
         UserPreferences defaults = UserPreferences.fromParsedXml(
             emptyScalars, emptyKeywords, emptyNameOverrides, emptyDisambigOverrides);
 
-        // Default must be the keyless v1 provider.
-        assertEquals(EpisodeDataProviderType.TVDB_V1, defaults.getEpisodeDataProvider());
+        // Default must be the keyless TVMaze provider.
+        assertEquals(EpisodeDataProviderType.TVMAZE, defaults.getEpisodeDataProvider());
         assertEquals("", defaults.getTvdbV4ApiKey());
     }
 

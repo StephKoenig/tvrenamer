@@ -309,19 +309,6 @@ class PreferencesDialog extends Dialog {
         GridLayout shellGridLayout = new GridLayout(4, false);
         preferencesShell.setLayout(shellGridLayout);
 
-        Label helpLabel = new Label(preferencesShell, SWT.NONE);
-        helpLabel.setText(HELP_TOOLTIP);
-        helpLabel.setLayoutData(
-            new GridData(
-                SWT.END,
-                SWT.CENTER,
-                true,
-                true,
-                shellGridLayout.numColumns,
-                1
-            )
-        );
-
         tabFolder = new TabFolder(preferencesShell, getStyle());
 
         tabFolder.setLayoutData(
@@ -366,18 +353,6 @@ class PreferencesDialog extends Dialog {
         preferencesShell.redraw();
     }
 
-    private void createLabel(
-        final String label,
-        final String tooltip,
-        final Composite group
-    ) {
-        final Label labelObj = new Label(group, SWT.NONE);
-        labelObj.setText(label);
-        labelObj.setToolTipText(tooltip);
-
-        // we don't need to return the object
-    }
-
     private Text createText(
         final String text,
         final Composite group,
@@ -402,6 +377,67 @@ class PreferencesDialog extends Dialog {
         textObj.setLayoutData(layout);
 
         return textObj;
+    }
+
+    /** Bold font for section headers on the General tab; disposed with the dialog. */
+    private org.eclipse.swt.graphics.Font sectionHeaderFont;
+
+    /**
+     * Add a bold, slightly-larger section header spanning the full width of the
+     * single-column General tab. Groups related controls without a heavy
+     * titled-border box. Extra space is reserved above the header so consecutive
+     * sections are visually separated.
+     */
+    private void createSectionHeader(final String text, final Composite parent) {
+        final Label header = new Label(parent, SWT.NONE);
+        header.setText(text);
+        if (sectionHeaderFont == null) {
+            org.eclipse.swt.graphics.FontData[] fd = parent.getFont().getFontData();
+            for (org.eclipse.swt.graphics.FontData d : fd) {
+                d.setStyle(d.getStyle() | SWT.BOLD);
+                d.setHeight(d.getHeight() + 1); // section headers stand out
+            }
+            sectionHeaderFont = new org.eclipse.swt.graphics.Font(parent.getDisplay(), fd);
+            parent.addDisposeListener(e -> {
+                if (sectionHeaderFont != null && !sectionHeaderFont.isDisposed()) {
+                    sectionHeaderFont.dispose();
+                    sectionHeaderFont = null;
+                }
+            });
+        }
+        header.setFont(sectionHeaderFont);
+        GridData headerData = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
+        headerData.verticalIndent = 12; // gap above the header (separates sections)
+        header.setLayoutData(headerData);
+    }
+
+    /**
+     * Like {@link #createSubForm} but reserves a small vertical gap above the
+     * returned composite, used for the first content block after a section header
+     * so the header does not sit flush against its controls.
+     */
+    private Composite createSectionContent(final Composite parent, final int cols,
+                                           final boolean equalWidth) {
+        final Composite form = createSubForm(parent, cols, equalWidth);
+        if (form.getLayoutData() instanceof GridData gd) {
+            gd.verticalIndent = 6; // breathing room between header and content
+        }
+        return form;
+    }
+
+    /**
+     * Create a full-width sub-form composite (child of the single-column General
+     * tab) with its own {@code cols}-column GridLayout and no outer margins, so
+     * its controls align flush with the section headers.
+     */
+    private Composite createSubForm(final Composite parent, final int cols, final boolean equalWidth) {
+        final Composite form = new Composite(parent, SWT.NONE);
+        final GridLayout gl = new GridLayout(cols, equalWidth);
+        gl.marginWidth = 0;
+        gl.marginHeight = 0;
+        form.setLayout(gl);
+        form.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1));
+        return form;
     }
 
     private Button createCheckbox(
@@ -617,14 +653,33 @@ class PreferencesDialog extends Dialog {
      * Create the controls that regard the naming of the season prefix folder.
      * The text box gets both a verify listener and a modify listener.
      */
-    private void createSeasonPrefixControls(final Composite generalGroup) {
-        createLabel(SEASON_PREFIX_TEXT, PREFIX_TOOLTIP, generalGroup);
+    /**
+     * Build the season-prefix controls into a two-column-equal row: the label and
+     * (narrow) prefix field occupy a nested cell in the left column, and the
+     * leading-zero checkbox takes the right column so it aligns with the other
+     * right-side checkboxes on the General tab.
+     *
+     * @param seasonRow a two-column-equal composite
+     * @param labelW    shared label width so the prefix field lines up with the
+     *                  combos elsewhere on the tab
+     */
+    private void createSeasonPrefixControls(final Composite seasonRow, final int labelW) {
+        final Composite seasonCell = createSubForm(seasonRow, 2, false);
+        Label seasonLabel = new Label(seasonCell, SWT.NONE);
+        seasonLabel.setText(SEASON_PREFIX_TEXT);
+        seasonLabel.setToolTipText(PREFIX_TOOLTIP);
+        GridData seasonLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        seasonLabelData.widthHint = labelW;
+        seasonLabel.setLayoutData(seasonLabelData);
+
         seasonPrefixString = prefs.getSeasonPrefix();
-        seasonPrefixText = createText(
-            StringUtils.makeQuotedString(seasonPrefixString),
-            generalGroup,
-            true
-        );
+        // The prefix is only a character or two; keep the field narrow.
+        seasonPrefixText = new Text(seasonCell, SWT.BORDER);
+        seasonPrefixText.setText(StringUtils.makeQuotedString(seasonPrefixString));
+        seasonPrefixText.setTextLimit(99);
+        GridData seasonPrefixData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 1, 1);
+        seasonPrefixData.widthHint = 70;
+        seasonPrefixText.setLayoutData(seasonPrefixData);
         seasonPrefixText.addVerifyListener(e -> {
             statusLabel.clear(NO_TEXT_BEFORE_OPENING_QUOTE);
             statusLabel.clear(NO_TEXT_AFTER_CLOSING_QUOTE);
@@ -635,128 +690,136 @@ class PreferencesDialog extends Dialog {
             SEASON_PREFIX_ZERO_TEXT,
             SEASON_PREFIX_ZERO_TOOLTIP,
             prefs.isSeasonPrefixLeadingZero(),
-            generalGroup,
+            seasonRow,
             GridData.BEGINNING,
-            3
+            1
         );
     }
 
     private void populateGeneralTab(final Composite generalGroup) {
+        // The General tab is a single column of full-width sections (see
+        // createGeneralTab). Each section is either a form sub-grid (label +
+        // control rows) or a two-column block of related checkboxes.
+
+        // Shared label column width. Every label-bearing row (destination, season,
+        // ignore, provider, title language, default subtitle language, theme) gives
+        // its leading label this exact width so the fields and combos line up in a
+        // single vertical column, even though each row lives in a separate
+        // composite. GridLayout only aligns columns within one grid, so equal label
+        // widths are what make the controls share a left edge across sections.
+        //
+        // The width is measured from the actual label strings (plus a little
+        // padding) rather than hard-coded, so it never clips the longest label and
+        // never over-pads the short ones regardless of font or DPI.
+        int labelW;
+        final org.eclipse.swt.graphics.GC labelGc = new org.eclipse.swt.graphics.GC(generalGroup);
+        try {
+            final String[] generalLabels = {
+                DEST_DIR_TEXT, SEASON_PREFIX_TEXT, IGNORE_LABEL_TEXT,
+                PROVIDER_LABEL_TEXT, TITLE_LANGUAGE_LABEL_TEXT, "Default language",
+                THEME_MODE_TEXT
+            };
+            int widest = 0;
+            for (final String s : generalLabels) {
+                widest = Math.max(widest, labelGc.textExtent(s).x);
+            }
+            labelW = widest + 8; // small trailing pad before the control
+        } finally {
+            labelGc.dispose();
+        }
+
+        // --- General ---
+        createSectionHeader("General", generalGroup);
+
+        // Move/rename as a two-column row so "Rename Enabled" lines up with the
+        // right-hand column of the File handling section below.
+        final Composite moveRenameRow = createSectionContent(generalGroup, 2, true);
         moveSelectedCheckbox = createCheckbox(
-            MOVE_SELECTED_TEXT,
-            MOVE_SELECTED_TOOLTIP,
-            true,
-            generalGroup,
-            GridData.BEGINNING,
-            2
-        );
+            MOVE_SELECTED_TEXT, MOVE_SELECTED_TOOLTIP, true, moveRenameRow, GridData.BEGINNING, 1);
         renameSelectedCheckbox = createCheckbox(
-            RENAME_SELECTED_TEXT,
-            RENAME_SELECTED_TOOLTIP,
-            true,
-            generalGroup,
-            GridData.END,
-            1
-        );
+            RENAME_SELECTED_TEXT, RENAME_SELECTED_TOOLTIP, true, moveRenameRow, GridData.BEGINNING, 1);
 
-        createLabel(DEST_DIR_TEXT, DEST_DIR_TOOLTIP, generalGroup);
-        destDirText = createText(
-            prefs.getDestinationDirectoryName(),
-            generalGroup,
-            false
-        );
-        destDirButton = createDestDirButton(generalGroup);
+        // Destination row (label + field + browse button).
+        final Composite destForm = createSubForm(generalGroup, 3, false);
+        Label destLabel = new Label(destForm, SWT.NONE);
+        destLabel.setText(DEST_DIR_TEXT);
+        destLabel.setToolTipText(DEST_DIR_TOOLTIP);
+        GridData destLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        destLabelData.widthHint = labelW;
+        destLabel.setLayoutData(destLabelData);
+        destDirText = createText(prefs.getDestinationDirectoryName(), destForm, false);
+        destDirButton = createDestDirButton(destForm);
 
-        createSeasonPrefixControls(generalGroup);
+        // Season prefix as a two-column row so the leading-zero checkbox lands in
+        // the right-hand column (aligned with the other right-side checkboxes).
+        final Composite seasonRow = createSubForm(generalGroup, 2, true);
+        createSeasonPrefixControls(seasonRow, labelW);
 
-        createLabel(IGNORE_LABEL_TEXT, IGNORE_LABEL_TOOLTIP, generalGroup);
-        ignoreWordsText = createText(
-            prefs.getIgnoredKeywordsString(),
-            generalGroup,
-            false
-        );
+        // Ignore-keywords row.
+        final Composite ignoreForm = createSubForm(generalGroup, 2, false);
+        Label ignoreLabel = new Label(ignoreForm, SWT.NONE);
+        ignoreLabel.setText(IGNORE_LABEL_TEXT);
+        ignoreLabel.setToolTipText(IGNORE_LABEL_TOOLTIP);
+        GridData ignoreLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        ignoreLabelData.widthHint = labelW;
+        ignoreLabel.setLayoutData(ignoreLabelData);
+        ignoreWordsText = createText(prefs.getIgnoredKeywordsString(), ignoreForm, false);
 
+        // --- File handling (two-column checkboxes) ---
+        createSectionHeader("File Handling", generalGroup);
+        final Composite fileChecks = createSectionContent(generalGroup, 2, true);
         recurseFoldersCheckbox = createCheckbox(
-            RECURSE_FOLDERS_TEXT,
-            RECURSE_FOLDERS_TOOLTIP,
-            prefs.isRecursivelyAddFolders(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            RECURSE_FOLDERS_TEXT, RECURSE_FOLDERS_TOOLTIP,
+            prefs.isRecursivelyAddFolders(), fileChecks, GridData.BEGINNING, 1);
         rmdirEmptyCheckbox = createCheckbox(
-            REMOVE_EMPTIED_TEXT,
-            REMOVE_EMPTIED_TOOLTIP,
-            prefs.isRemoveEmptiedDirectories(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            REMOVE_EMPTIED_TEXT, REMOVE_EMPTIED_TOOLTIP,
+            prefs.isRemoveEmptiedDirectories(), fileChecks, GridData.BEGINNING, 1);
         deleteRowsCheckbox = createCheckbox(
-            DELETE_ROWS_TEXT,
-            DELETE_ROWS_TOOLTIP,
-            prefs.isDeleteRowAfterMove(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            DELETE_ROWS_TEXT, DELETE_ROWS_TOOLTIP,
+            prefs.isDeleteRowAfterMove(), fileChecks, GridData.BEGINNING, 1);
         overwriteDestinationCheckbox = createCheckbox(
-            OVERWRITE_DEST_TEXT,
-            OVERWRITE_DEST_TOOLTIP,
-            prefs.isAlwaysOverwriteDestination(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            OVERWRITE_DEST_TEXT, OVERWRITE_DEST_TOOLTIP,
+            prefs.isAlwaysOverwriteDestination(), fileChecks, GridData.BEGINNING, 1);
         cleanupDuplicatesCheckbox = createCheckbox(
-            CLEANUP_DUPLICATES_TEXT,
-            CLEANUP_DUPLICATES_TOOLTIP,
-            prefs.isCleanupDuplicateVideoFiles(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
-        tagVideoMetadataCheckbox = createCheckbox(
-            TAG_VIDEO_METADATA_TEXT,
-            TAG_VIDEO_METADATA_TOOLTIP,
-            prefs.isTagVideoMetadata(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            CLEANUP_DUPLICATES_TEXT, CLEANUP_DUPLICATES_TOOLTIP,
+            prefs.isCleanupDuplicateVideoFiles(), fileChecks, GridData.BEGINNING, 1);
+        setMtimeToNowCheckbox = createCheckbox(
+            "Set file modification time to now after move/rename",
+            "If checked, TVRenamer will set the destination file's modification time to the current time after moving/renaming.\nIf unchecked (default), TVRenamer will preserve the original modification time.",
+            !prefs.isPreserveFileModificationTime(), fileChecks, GridData.BEGINNING, 1);
 
-        // --- Subtitles section -------------------------------------------------
-        // Mirrors the "Tag video metadata" idiom above: a master checkbox spanning
-        // the full row, followed by indented children, ending with a status label.
-        // The General tab is a 3-column GridLayout, so we use span=3 for the
-        // master checkbox and the status label, and label+combo+spacer for the
-        // language row.
+        // --- Metadata & subtitles ---
+        createSectionHeader("Metadata and Subtitles", generalGroup);
+        // Single-column container: full-width master checkboxes, then a
+        // two-column row for the language combo + delete-after checkbox, then the
+        // tool-status line.
+        final Composite metaForm = createSectionContent(generalGroup, 1, false);
+        tagVideoMetadataCheckbox = createCheckbox(
+            TAG_VIDEO_METADATA_TEXT, TAG_VIDEO_METADATA_TOOLTIP,
+            prefs.isTagVideoMetadata(), metaForm, GridData.BEGINNING, 1);
+
         mergeSubtitlesCheckbox = createCheckbox(
             "Merge sibling subtitle files into renamed media",
             "When renaming/moving a media file, locate any sibling subtitle file with the matching base name and merge it into the media container as a soft subtitle track. Requires MP4Box (GPAC) for MP4/M4V and mkvmerge (MKVToolNix) for MKV.",
-            prefs.isMergeSubtitles(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+            prefs.isMergeSubtitles(), metaForm, GridData.BEGINNING, 1);
 
-        // Language label + read-only combo. We don't push extra GridData
-        // settings beyond what the existing controls do; horizontalIndent
-        // gives a small visual indent under the master checkbox without
-        // introducing a new layout system.
-        Label subtitleLanguageLabel = new Label(generalGroup, SWT.NONE);
+        // Language label + combo in the left cell, delete-after checkbox in the
+        // right cell, so the checkbox aligns with the File-handling right column.
+        final Composite subtitleRow = createSubForm(metaForm, 2, true);
+        final Composite subtitleLangCell = createSubForm(subtitleRow, 2, false);
+        Label subtitleLanguageLabel = new Label(subtitleLangCell, SWT.NONE);
         subtitleLanguageLabel.setText("Default language");
         subtitleLanguageLabel.setToolTipText(
             "Language used for subtitle files whose filename has no language tag.");
         GridData subtitleLanguageLabelData =
             new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 1, 1);
-        subtitleLanguageLabelData.horizontalIndent = 16;
+        subtitleLanguageLabelData.widthHint = labelW;
         subtitleLanguageLabel.setLayoutData(subtitleLanguageLabelData);
 
-        subtitleLanguageCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
-        subtitleLanguageCombo.setLayoutData(
-            new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1)
-        );
+        subtitleLanguageCombo = new Combo(subtitleLangCell, SWT.DROP_DOWN | SWT.READ_ONLY);
+        GridData subtitleLangComboData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 1, 1);
+        subtitleLangComboData.widthHint = 140;
+        subtitleLanguageCombo.setLayoutData(subtitleLangComboData);
         subtitleLanguageCombo.setToolTipText(
             "Language used for subtitle files whose filename has no language tag.");
         for (Language lang : SubtitleLanguages.ALL) {
@@ -766,87 +829,61 @@ class PreferencesDialog extends Dialog {
         deleteSubtitlesAfterMergeCheckbox = createCheckbox(
             "Delete subtitle files after successful merge",
             "Once a subtitle file has been merged into the media container and the rename has succeeded, delete the original sibling subtitle file.",
-            prefs.isDeleteSubtitlesAfterMerge(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
-        // Indent the delete-subtitles checkbox under the master checkbox.
-        if (deleteSubtitlesAfterMergeCheckbox.getLayoutData() instanceof GridData dgd) {
-            dgd.horizontalIndent = 16;
-        }
+            prefs.isDeleteSubtitlesAfterMerge(), subtitleRow, GridData.BEGINNING, 1);
 
-        // Tool-detection status label (populated once on dialog open — no live
-        // refresh needed because tool availability is cached per-JVM).
-        Label subtitleToolStatusLabel = new Label(generalGroup, SWT.NONE);
-        GridData subtitleToolStatusLabelData =
-            new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1);
-        subtitleToolStatusLabelData.horizontalIndent = 16;
-        subtitleToolStatusLabel.setLayoutData(subtitleToolStatusLabelData);
+        Label subtitleToolStatusLabel = new Label(metaForm, SWT.NONE);
+        subtitleToolStatusLabel.setLayoutData(
+            new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 1, 1));
         subtitleToolStatusLabel.setText(new SubtitleMergeController().getToolSummary());
-        // --- end Subtitles section --------------------------------------------
 
-        checkForUpdatesCheckbox = createCheckbox(
-            CHECK_UPDATES_TEXT,
-            CHECK_UPDATES_TOOLTIP,
-            prefs.checkForUpdates(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
+        // --- Data provider ---
+        createSectionHeader("Data Provider", generalGroup);
 
-        setMtimeToNowCheckbox = createCheckbox(
-            "Set file modification time to now after move/rename",
-            "If checked, TVRenamer will set the destination file's modification time to the current time after moving/renaming.\nIf unchecked (default), TVRenamer will preserve the original modification time.",
-            !prefs.isPreserveFileModificationTime(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
-
-        createLabel(THEME_MODE_TEXT, THEME_MODE_TOOLTIP, generalGroup);
-        themeModeCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
-        themeModeCombo.setLayoutData(
-            new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1)
-        );
-        themeModeCombo.setToolTipText(THEME_MODE_TOOLTIP);
-        for (ThemeMode mode : ThemeMode.values()) {
-            themeModeCombo.add(mode.toString());
-        }
-
-        Label themeRestartLabel = new Label(generalGroup, SWT.NONE);
-        themeRestartLabel.setText(THEME_MODE_RESTART_NOTE);
-        themeRestartLabel.setLayoutData(
-            new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1)
-        );
-
-        preferDvdOrderCheckbox = createCheckbox(
-            PREFER_DVD_ORDER_TEXT,
-            PREFER_DVD_ORDER_TOOLTIP,
-            prefs.isPreferDvdOrderIfPresent(),
-            generalGroup,
-            GridData.BEGINNING,
-            3
-        );
-
-        createLabel(PROVIDER_LABEL_TEXT, PROVIDER_TOOLTIP, generalGroup);
-        providerCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
-        providerCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
+        // Provider dropdown + API key + Validate button all on one line, each
+        // sized to its content rather than stretched across the whole row.
+        final Composite providerRow = createSectionContent(generalGroup, 5, false);
+        Label providerLabel = new Label(providerRow, SWT.NONE);
+        providerLabel.setText(PROVIDER_LABEL_TEXT);
+        providerLabel.setToolTipText(PROVIDER_TOOLTIP);
+        GridData providerLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        providerLabelData.widthHint = labelW;
+        providerLabel.setLayoutData(providerLabelData);
+        providerCombo = new Combo(providerRow, SWT.DROP_DOWN | SWT.READ_ONLY);
+        GridData providerComboData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        providerComboData.widthHint = 140;
+        providerCombo.setLayoutData(providerComboData);
         providerCombo.setToolTipText(PROVIDER_TOOLTIP);
         for (EpisodeDataProviderType t : EpisodeDataProviderType.values()) {
             providerCombo.add(t.toString());
         }
 
-        createLabel(TVDB_V4_KEY_LABEL_TEXT, TVDB_V4_KEY_TOOLTIP, generalGroup);
-        tvdbV4KeyText = createText(prefs.getTvdbV4ApiKey(), generalGroup, false);
-        tvdbV4ValidateButton = new Button(generalGroup, SWT.PUSH);
+        Label v4KeyLabel = new Label(providerRow, SWT.NONE);
+        v4KeyLabel.setText("v4 API key:");
+        v4KeyLabel.setToolTipText(TVDB_V4_KEY_TOOLTIP);
+        GridData v4KeyLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        v4KeyLabelData.horizontalIndent = 12;
+        v4KeyLabel.setLayoutData(v4KeyLabelData);
+
+        tvdbV4KeyText = new Text(providerRow, SWT.BORDER);
+        tvdbV4KeyText.setText(prefs.getTvdbV4ApiKey());
+        tvdbV4KeyText.setTextLimit(99);
+        GridData v4KeyData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        v4KeyData.widthHint = 210; // fits a UUID key without stretching the row
+        tvdbV4KeyText.setLayoutData(v4KeyData);
+
+        tvdbV4ValidateButton = new Button(providerRow, SWT.PUSH);
         tvdbV4ValidateButton.setText(TVDB_V4_VALIDATE_BUTTON_TEXT);
 
-        tvdbV4ValidateStatus = new Label(generalGroup, SWT.NONE);
+        // Validation status on its own full-width line beneath the provider row.
         // FILL (not BEGINNING) so the label occupies the row width even though it is
         // created empty; otherwise GridLayout sizes it to its ~0-width empty preferred
         // size at open time and a message set later by setText(...) is clipped to nothing.
-        tvdbV4ValidateStatus.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1));
+        tvdbV4ValidateStatus = new Label(generalGroup, SWT.NONE);
+        GridData validateStatusData = new GridData(SWT.FILL, SWT.CENTER, true, false, 1, 1);
+        // Excluded from layout while empty so it reserves no vertical gap; set
+        // visible again by setTvdbV4ValidateStatus(...) when a result is shown.
+        validateStatusData.exclude = true;
+        tvdbV4ValidateStatus.setLayoutData(validateStatusData);
         ThemeManager.applyPalette(tvdbV4ValidateStatus, themePalette);
 
         tvdbV4ValidateButton.addListener(SWT.Selection, e -> validateTvdbV4KeyOnline());
@@ -854,14 +891,60 @@ class PreferencesDialog extends Dialog {
         tvdbV4KeyText.addListener(SWT.Modify, e -> resetTvdbV4KeyValidationTint());
         providerCombo.addListener(SWT.Selection, e -> updateProviderControlsEnabled());
 
-        createLabel(TITLE_LANGUAGE_LABEL_TEXT, TITLE_LANGUAGE_TOOLTIP, generalGroup);
-        titleLanguageCombo = new Combo(generalGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
-        titleLanguageCombo.setLayoutData(new GridData(SWT.FILL, SWT.CENTER, true, false, 2, 1));
+        // Remaining v4-only settings: title-language label + combo in the left
+        // cell, Prefer-DVD checkbox in the right cell (aligned with the other
+        // right-column checkboxes; combo aligned with the provider combo above).
+        final Composite titleRow = createSubForm(generalGroup, 2, true);
+        final Composite titleLangCell = createSubForm(titleRow, 2, false);
+        Label titleLanguageLabel = new Label(titleLangCell, SWT.NONE);
+        titleLanguageLabel.setText(TITLE_LANGUAGE_LABEL_TEXT);
+        titleLanguageLabel.setToolTipText(TITLE_LANGUAGE_TOOLTIP);
+        GridData titleLanguageLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        titleLanguageLabelData.widthHint = labelW;
+        titleLanguageLabel.setLayoutData(titleLanguageLabelData);
+        titleLanguageCombo = new Combo(titleLangCell, SWT.DROP_DOWN | SWT.READ_ONLY);
+        GridData titleComboData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        titleComboData.widthHint = 140;
+        titleLanguageCombo.setLayoutData(titleComboData);
         titleLanguageCombo.setToolTipText(TITLE_LANGUAGE_TOOLTIP);
         for (TitleLanguage t : TitleLanguage.values()) {
             titleLanguageCombo.add(t.toString());
         }
         ThemeManager.applyPalette(titleLanguageCombo, themePalette);
+
+        preferDvdOrderCheckbox = createCheckbox(
+            PREFER_DVD_ORDER_TEXT, PREFER_DVD_ORDER_TOOLTIP,
+            prefs.isPreferDvdOrderIfPresent(), titleRow, GridData.BEGINNING, 1);
+
+        // --- Application ---
+        createSectionHeader("Application", generalGroup);
+        final Composite appForm = createSectionContent(generalGroup, 3, false);
+        Label themeLabel = new Label(appForm, SWT.NONE);
+        themeLabel.setText(THEME_MODE_TEXT);
+        themeLabel.setToolTipText(THEME_MODE_TOOLTIP);
+        GridData themeLabelData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false);
+        themeLabelData.widthHint = labelW;
+        themeLabel.setLayoutData(themeLabelData);
+        themeModeCombo = new Combo(appForm, SWT.DROP_DOWN | SWT.READ_ONLY);
+        GridData themeComboData = new GridData(SWT.BEGINNING, SWT.CENTER, false, false, 1, 1);
+        themeComboData.widthHint = 140;
+        themeModeCombo.setLayoutData(themeComboData);
+        themeModeCombo.setToolTipText(THEME_MODE_TOOLTIP);
+        for (ThemeMode mode : ThemeMode.values()) {
+            themeModeCombo.add(mode.toString());
+        }
+
+        // Restart note shares the theme row (label + combo + note).
+        Label themeRestartLabel = new Label(appForm, SWT.NONE);
+        themeRestartLabel.setText(THEME_MODE_RESTART_NOTE);
+        GridData themeRestartData = new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 1, 1);
+        themeRestartData.horizontalIndent = 12;
+        themeRestartLabel.setLayoutData(themeRestartData);
+
+        final Composite appChecks = createSubForm(generalGroup, 2, true);
+        checkForUpdatesCheckbox = createCheckbox(
+            CHECK_UPDATES_TEXT, CHECK_UPDATES_TOOLTIP,
+            prefs.checkForUpdates(), appChecks, GridData.BEGINNING, 1);
     }
 
     private void initializeGeneralControls() {
@@ -940,14 +1023,65 @@ class PreferencesDialog extends Dialog {
      * set after the dialog was first laid out is not clipped (the label is created
      * empty). Mirrors the dynamic relayout in {@link #updateRenameFormatPreview()}.
      */
+    /**
+     * Update a Matching-tab hover-tip label, toggling its layout exclusion so an
+     * empty label reserves no vertical space. Only relayouts on an empty/non-empty
+     * transition, which is infrequent (most hovered rows have no message).
+     */
+    private void setMatchingHoverTip(final Label label, final String text) {
+        if (label == null || label.isDisposed()) {
+            return;
+        }
+        final String next = (text == null) ? "" : text;
+        if (next.equals(label.getText())) {
+            return;
+        }
+        label.setText(next);
+        final boolean empty = next.isEmpty();
+        if (label.getLayoutData() instanceof GridData gd && gd.exclude != empty) {
+            gd.exclude = empty;
+            label.setVisible(!empty);
+            final Composite p = label.getParent();
+            if (p != null && !p.isDisposed()) {
+                p.layout(true, true);
+            }
+            // The labels are excluded from layout at pack() time, so the shell may
+            // not have reserved room for a message. Grow (never shrink) so the
+            // newly-shown tip is not clipped at the bottom.
+            if (!empty && preferencesShell != null && !preferencesShell.isDisposed()) {
+                final org.eclipse.swt.graphics.Point cur = preferencesShell.getSize();
+                final org.eclipse.swt.graphics.Point need =
+                    preferencesShell.computeSize(cur.x, SWT.DEFAULT);
+                if (need.y > cur.y) {
+                    preferencesShell.setSize(cur.x, need.y);
+                }
+            }
+        }
+    }
+
     private void setTvdbV4ValidateStatus(String text) {
         if (tvdbV4ValidateStatus == null || tvdbV4ValidateStatus.isDisposed()) {
             return;
         }
         tvdbV4ValidateStatus.setText(text);
+        // The label is excluded from layout while empty (no reserved gap); include
+        // it once there is a message to show.
+        if (tvdbV4ValidateStatus.getLayoutData() instanceof GridData gd) {
+            gd.exclude = (text == null || text.isEmpty());
+        }
         Composite parent = tvdbV4ValidateStatus.getParent();
         if (parent != null && !parent.isDisposed()) {
             parent.layout(true);
+        }
+        // Grow the dialog height if the newly-shown status line would otherwise be
+        // clipped; never shrink it.
+        if (preferencesShell != null && !preferencesShell.isDisposed()) {
+            org.eclipse.swt.graphics.Point cur = preferencesShell.getSize();
+            org.eclipse.swt.graphics.Point need =
+                preferencesShell.computeSize(cur.x, SWT.DEFAULT);
+            if (need.y > cur.y) {
+                preferencesShell.setSize(cur.x, need.y);
+            }
         }
     }
 
@@ -1034,7 +1168,9 @@ class PreferencesDialog extends Dialog {
 
         final Composite generalGroup = new Composite(tabFolder, SWT.NONE);
 
-        generalGroup.setLayout(new GridLayout(3, false));
+        // Single column of full-width sections; each section supplies its own
+        // sub-grid (see populateGeneralTab / createSubForm / createSectionHeader).
+        generalGroup.setLayout(new GridLayout(1, false));
 
         generalGroup.setLayoutData(
             new GridData(SWT.FILL, SWT.CENTER, true, true, 3, 1)
@@ -1583,11 +1719,14 @@ class PreferencesDialog extends Dialog {
         updateSaveEnabledFromMatchingValidation();
 
         // Validation message display for Overrides table (shown near this table).
+        // Excluded from layout while empty (the common case) so it reserves no
+        // vertical gap; setMatchingHoverTip re-includes it when a message appears.
         overridesHoverTipLabel = new Label(overridesGroup, SWT.WRAP);
         overridesHoverTipLabel.setText("");
-        overridesHoverTipLabel.setLayoutData(
-            new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1)
-        );
+        GridData overridesHoverTipData = new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1);
+        overridesHoverTipData.exclude = true;
+        overridesHoverTipLabel.setLayoutData(overridesHoverTipData);
+        overridesHoverTipLabel.setVisible(false);
 
         // Clicking a row loads it into the edit fields for easy update
         // Note: column 0 is the status icon column; values are in columns 1 and 2.
@@ -1617,22 +1756,11 @@ class PreferencesDialog extends Dialog {
                 : ti.getData(MATCHING_VALIDATION_MESSAGE_KEY);
             String next = (msgObj == null) ? "" : msgObj.toString();
 
-            // Avoid forcing layouts on every mouse move; only update when text actually changes.
-            String current = overridesHoverTipLabel.getText();
-            if (current == null) {
-                current = "";
-            }
-            if (!current.equals(next)) {
-                overridesHoverTipLabel.setText(next);
-            }
+            // Only updates (and relayouts) when the message actually changes.
+            setMatchingHoverTip(overridesHoverTipLabel, next);
         });
 
         // --- Disambiguations section (Query string -> Series ID) ---
-        Label spacer = new Label(overridesGroup, SWT.NONE);
-        spacer.setLayoutData(
-            new GridData(SWT.BEGINNING, SWT.CENTER, true, false, 3, 1)
-        );
-
         Label disambiguationsHeader = new Label(overridesGroup, SWT.NONE);
         disambiguationsHeader.setText(
             "Disambiguations (Query string \u2192 Series ID)"
@@ -1855,11 +1983,14 @@ class PreferencesDialog extends Dialog {
         updateSaveEnabledFromMatchingValidation();
 
         // Validation message display for Disambiguations table (shown near this table).
+        // Excluded from layout while empty so it reserves no vertical gap beneath
+        // the section; setMatchingHoverTip re-includes it when a message appears.
         disambiguationsHoverTipLabel = new Label(overridesGroup, SWT.WRAP);
         disambiguationsHoverTipLabel.setText("");
-        disambiguationsHoverTipLabel.setLayoutData(
-            new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1)
-        );
+        GridData disambiguationsHoverTipData = new GridData(SWT.FILL, SWT.CENTER, true, false, 3, 1);
+        disambiguationsHoverTipData.exclude = true;
+        disambiguationsHoverTipLabel.setLayoutData(disambiguationsHoverTipData);
+        disambiguationsHoverTipLabel.setVisible(false);
 
         disambiguationsTable.addListener(SWT.Selection, e -> {
             int idx = disambiguationsTable.getSelectionIndex();
@@ -1888,14 +2019,8 @@ class PreferencesDialog extends Dialog {
                 : ti.getData(MATCHING_VALIDATION_MESSAGE_KEY);
             String next = (msgObj == null) ? "" : msgObj.toString();
 
-            // Avoid forcing layouts on every mouse move; only update when text actually changes.
-            String current = disambiguationsHoverTipLabel.getText();
-            if (current == null) {
-                current = "";
-            }
-            if (!current.equals(next)) {
-                disambiguationsHoverTipLabel.setText(next);
-            }
+            // Only updates (and relayouts) when the message actually changes.
+            setMatchingHoverTip(disambiguationsHoverTipLabel, next);
         });
 
         item.setControl(overridesGroup);
@@ -2599,6 +2724,14 @@ class PreferencesDialog extends Dialog {
         }
 
         preferencesShell.pack();
+
+        // Widen the dialog a little so the General tab's two-column sections have
+        // room to sit side-by-side; only grow, never shrink below the packed size.
+        final org.eclipse.swt.graphics.Point packed = preferencesShell.getSize();
+        final int minWidth = 680;
+        if (packed.x < minWidth) {
+            preferencesShell.setSize(minWidth, packed.y);
+        }
 
         // Center over the parent (main window) so it doesn't appear in an OS-random place.
         // Zero offset for exact centering; clamped to parent's monitor work area.

@@ -123,32 +123,32 @@ public class Constants {
 
     public static final String GENERAL_LABEL = "General";
     public static final String RENAMING_LABEL = "Renaming";
-    public static final String MOVE_SELECTED_TEXT = "Move Enabled [?]";
-    public static final String RENAME_SELECTED_TEXT = "Rename Enabled [?]";
-    public static final String DEST_DIR_TEXT = "TV Directory [?]";
+    public static final String MOVE_SELECTED_TEXT = "Move Enabled";
+    public static final String RENAME_SELECTED_TEXT = "Rename Enabled";
+    public static final String DEST_DIR_TEXT = "TV Directory";
     public static final String DEST_DIR_BUTTON_TEXT = "Select directory";
     public static final String DIR_DIALOG_TEXT =
         "Please select a directory and click OK";
-    public static final String SEASON_PREFIX_TEXT = "Season Prefix [?]";
+    public static final String SEASON_PREFIX_TEXT = "Season Prefix";
     public static final String SEASON_PREFIX_ZERO_TEXT =
-        "Season Prefix Leading Zero [?]";
+        "Season Prefix Leading Zero";
     public static final String IGNORE_LABEL_TEXT =
-        "Ignore files containing [?]";
+        "Ignore files containing";
     public static final String RECURSE_FOLDERS_TEXT =
-        "Recursively add shows in subdirectories [?]";
+        "Recursively add shows in subdirectories";
     public static final String RECURSE_FOLDERS_TOOLTIP =
         "If unchecked, do not look into subfolders " + "for shows to add";
     public static final String REMOVE_EMPTIED_TEXT =
-        "Remove emptied directories [?]";
+        "Remove emptied directories";
     public static final String REMOVE_EMPTIED_TOOLTIP =
         "When selected, directories which become empty due to file\n" +
         "movement will be deleted.";
     public static final String CHECK_UPDATES_TEXT =
-        "Check for Updates at startup [?]";
+        "Check for Updates at startup";
     public static final String CHECK_UPDATES_TOOLTIP =
         "If checked, will automatically check " + APPLICATION_NAME + "\n" +
         "website for new versions at startup, and offer to update if found.";
-    public static final String THEME_MODE_TEXT = "Theme [?]";
+    public static final String THEME_MODE_TEXT = "Theme";
     public static final String THEME_MODE_TOOLTIP =
         "Choose Light, Dark, or Auto (uses the operating system theme).\n" +
         "Changes take effect after restart.";
@@ -165,27 +165,27 @@ public class Constants {
     public static final String TITLE_LANGUAGE_TOOLTIP =
         "Language for the show name and episode titles in renamed files (TheTVDB v4 only).";
     public static final String PREFER_DVD_ORDER_TEXT =
-        "Prefer DVD episode order if present [?]";
+        "Prefer DVD episode order if present";
     public static final String PREFER_DVD_ORDER_TOOLTIP =
         "If checked, TVRenamer will prefer DVD ordering/titles\n" +
         "when available. If DVD ordering is not present for a show,\n" +
         "TVRenamer will fall back to aired order.";
-    public static final String DELETE_ROWS_TEXT = "Clear completed rows [?]";
+    public static final String DELETE_ROWS_TEXT = "Clear completed rows";
     public static final String DELETE_ROWS_TOOLTIP =
         "If checked, after a file has been successfully moved/renamed,\n" +
         "clear the completed row from the table.";
-    public static final String OVERWRITE_DEST_TEXT = "Always overwrite destination [?]";
+    public static final String OVERWRITE_DEST_TEXT = "Always overwrite destination";
     public static final String OVERWRITE_DEST_TOOLTIP =
         "If checked, overwrite existing destination files instead of\n" +
         "creating versioned filenames like (1), (2). Use with caution.";
     public static final String CLEANUP_DUPLICATES_TEXT =
-        "Delete duplicate video files [?]";
+        "Delete duplicate video files";
     public static final String CLEANUP_DUPLICATES_TOOLTIP =
         "After moving a file, delete other video files that\n" +
         "represent the same episode (same base name or same\n" +
         "season/episode). Only video files are deleted, not subtitles.";
     public static final String TAG_VIDEO_METADATA_TEXT =
-        "Tag video files with episode metadata [?]";
+        "Tag video files with episode metadata";
     public static final String TAG_VIDEO_METADATA_TOOLTIP =
         "If checked, TVRenamer will write TV show metadata\n" +
         "(show name, season, episode, title) to supported video\n" +
@@ -196,14 +196,12 @@ public class Constants {
         "• MKV/WebM - Requires MKVToolNix (mkvpropedit)\n\n" +
         "If the required tool is not installed, those files\n" +
         "are silently skipped.";
-    public static final String RENAME_TOKEN_TEXT = "Rename Tokens [?]";
-    public static final String RENAME_FORMAT_TEXT = "Rename Format [?]";
+    public static final String RENAME_TOKEN_TEXT = "Rename Tokens";
+    public static final String RENAME_FORMAT_TEXT = "Rename Format";
     public static final String RENAME_SELECTED_TOOLTIP =
         "Whether the 'rename' functionality is enabled.\n" +
         "You can move a file into a folder based on its show\n" +
         "without actually renaming the file";
-    public static final String HELP_TOOLTIP =
-        "Hover mouse over [?] to get help";
     public static final String GENERAL_TOOLTIP =
         " - TVRenamer will automatically move the files to your\n" +
         "   'TV' folder if you want it to.\n" +

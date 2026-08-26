@@ -923,6 +923,72 @@ Completes the code improvement opportunities document (all 24 items done).
 
 ---
 
+### 61) General preferences tab redesign; Matching tab spacing cleanup
+- **Why:** The General tab had accumulated many options across successive
+  features and grown very tall, with every control on its own full-width row.
+  Making the dialog a little wider and laying related short controls into two
+  columns under section headers is faster to scan and shorter overall. The `[?]`
+  help markers on labels were redundant now that hovering any control shows its
+  tooltip.
+- **Where:** `org.tvrenamer.view.PreferencesDialog` (`populateGeneralTab` and new
+  `createSectionHeader`/`createSectionContent`/`createSubForm` layout helpers,
+  `createSeasonPrefixControls`, `setTvdbV4ValidateStatus`, `setMatchingHoverTip`,
+  `createOverridesTab`); `org.tvrenamer.model.util.Constants` (label constants —
+  `[?]` markers stripped, obsolete `HELP_TOOLTIP` removed).
+- **What we did:**
+  - Grouped the General controls under bold section headers (General, File
+    Handling, Metadata and Subtitles, Data Provider, Application) instead of one
+    tall single-column list. Headers are bold and 1px larger with breathing room
+    above (section separation) and below (before their content).
+  - Laid related short controls into two-equal-column rows so the right-side
+    checkboxes (Rename Enabled, Remove emptied directories, Delete subtitle files,
+    Prefer DVD order, Season Prefix Leading Zero) align in a single column
+    regardless of neighbouring field widths.
+  - Put the data provider dropdown, v4 API key field, and Validate button on one
+    line, each sized to its content. Aligned every dropdown/field label to a
+    single column width measured from the actual label strings via
+    `GC.textExtent` (so it never clips the longest label nor over-pads the short
+    ones), which makes the combos share a left edge even though each row lives in
+    a separate composite (GridLayout only aligns columns within one grid).
+  - Collapsed empty status/hover labels out of the layout (`GridData.exclude`) so
+    they reserve no vertical gap until they have a message; the shell grows (never
+    shrinks) to fit a message when one appears.
+  - Removed all `[?]` markers from preference labels and deleted the now-obsolete
+    "Hover mouse over [?] to get help" hint row; tooltips still show on hover.
+  - Matching tab: removed the full-row spacer between the Overrides and
+    Disambiguations sections and collapsed the two empty hover-message rows,
+    trimming the dialog height across all three tabs.
+  - Removed the now-unused `createLabel` helper.
+
+---
+
+### 62) Dependency refresh — runtime, test, and build tooling
+- **Why:** Several dependencies had drifted behind their latest releases. A
+  periodic refresh keeps us current on fixes and avoids a large, risky jump
+  later. Versions are tracked in `gradle/libs.versions.toml` (single source of
+  truth) with `gradle.lockfile` pinned.
+- **Where:** `gradle/libs.versions.toml`, `gradle.lockfile`,
+  `gradle/wrapper/gradle-wrapper.properties`, `gradlew`, `gradlew.bat`.
+- **What we did:**
+  - Runtime/test: gson 2.11.0 → 2.14.0, JUnit Jupiter 6.1.1 → 6.1.3. Regenerated
+    the lockfile from scratch, which also dropped stale `integrationTest*` lock
+    entries left over after the integrationTest wiring was removed.
+  - Build tooling: Shadow 9.4.2 → 9.6.1 and Gradle 9.6.1 → 9.7.1, each as its own
+    commit and each verified with `clean build shadowJar createExe` — the
+    `SWT-OS`/`SWT-Arch` manifest attributes (see #37) were confirmed still applied
+    to the shaded jar, and CI passed on a clean Windows runner.
+  - SpotBugs plugin 6.5.8 → 6.5.11. This release was 6 days old, inside the usual
+    7-day supply-chain quarantine window; the exception was made deliberately
+    after confirming the release was not compromised. SpotBugs is
+    static-analysis-only and is not part of the packaged runtime artifact.
+  - SWT (3.134.0) and launch4j (4.0.0) were already at their latest releases.
+- **Notes:**
+  - Upgrading the Gradle wrapper locally required pointing Java at the Windows
+    certificate store (`-Djavax.net.ssl.trustStoreType=Windows-ROOT`) for the
+    distribution download — a local network-interception quirk, not needed on CI.
+
+---
+
 ## Related records
 
 - Per-release notes are stored as versioned Markdown files:

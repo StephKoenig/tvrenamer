@@ -27,16 +27,30 @@ This document consolidates "future work" notes from the codebase. Notes are grou
 ## Code Reliability & Maintenance
 
 ### Verify SWT-OS/SWT-Arch manifest workaround can be removed
-**Context:** `build.gradle`'s `shadowJar` block injects `SWT-OS`/`SWT-Arch` manifest
-attributes as a workaround for SWT's `isLoadable()` check (background in
+**Context:** `build.gradle` injects `SWT-OS`/`SWT-Arch` manifest attributes into
+both fat jars as a workaround for SWT's `isLoadable()` check (background in
 `docs/Completed.md` #37). Upstream issue
 [#2928](https://github.com/eclipse-platform/eclipse.platform.swt/issues/2928) was
-closed 2026-06-01, and we now ship SWT 3.134.0 (released 2026-06-05) which likely
-contains the fix.
-**Action:** Remove the two manifest attributes from `build.gradle`, run
-`./gradlew clean build shadowJar createExe`, and launch the EXE. If SWT loads its
-native libraries without them, delete the workaround for good; if not, restore and
-re-check on the next SWT bump.
+closed 2026-06-01, and SWT 3.134.0 (released 2026-06-05) was expected to contain
+the fix.
+
+**Tested 2026-09-05 — the workaround is STILL REQUIRED.** Removing both
+`manifest { attributes(swtManifestAttributes) }` blocks and rebuilding
+(`clean build shadowJar createExe`) produces a jar whose manifest correctly lacks
+the attributes, but the application then dies at startup, immediately after
+"Creating UIStarter...", with:
+
+    Libraries for platform win32 cannot be loaded because of incompatible environment
+
+Verified against SWT 3.134.0, Shadow 9.6.1, Gradle 9.7.1. The workaround was
+restored and the app confirmed working again. So either the upstream fix does not
+cover the Shadow-repackaged case, or it still relies on these attributes being
+present.
+
+**Action:** Do NOT retry on the current SWT version — the answer is known. Re-test
+only after the next SWT upgrade, using the same procedure: delete the two manifest
+blocks and the `swtManifestAttributes` definition, rebuild, and actually launch the
+jar/EXE (a green build proves nothing here; the failure is at runtime).
 **Effort:** Small
 
 ### Episode DB path canonicalization — add tests

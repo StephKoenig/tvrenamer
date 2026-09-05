@@ -1,5 +1,7 @@
 package org.tvrenamer.model;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -120,5 +122,57 @@ public class FileEpisodeRematchTest {
         FileEpisode ep = new FileEpisode("gibberish-no-episode-here.mp4");
         // deliberately not calling setParsed()
         assertFalse(ep.rematchWouldChangeResult(prefs));
+    }
+
+    @Test
+    @DisplayName("Row matched under a pin that has since been removed is selected")
+    public void removedDisambiguationIsSelected() {
+        int currentId = uniqueSeriesId();
+        FileEpisode ep = parsedEpisode("the quiet ones");
+        ep.setEpisodeShow(Series.createSeries(currentId, "The Quiet Ones"));
+        // This row was resolved because a disambiguation pinned it.
+        ep.setPinnedSeriesIdAtMatch(String.valueOf(currentId));
+
+        // The user has now removed that pin entirely.
+        prefs.setShowDisambiguationOverrides(new HashMap<>());
+
+        assertTrue(ep.rematchWouldChangeResult(prefs));
+    }
+
+    @Test
+    @DisplayName("Row that was never pinned is NOT selected when no pins exist")
+    public void neverPinnedRowNotSelected() {
+        FileEpisode ep = parsedEpisode("the quiet ones");
+        ep.setEpisodeShow(Series.createSeries(uniqueSeriesId(), "The Quiet Ones"));
+        // No pin was in effect when this row matched, and none exists now.
+        ep.setPinnedSeriesIdAtMatch(null);
+
+        prefs.setShowDisambiguationOverrides(new HashMap<>());
+
+        assertFalse(ep.rematchWouldChangeResult(prefs));
+    }
+
+    @Test
+    @DisplayName("Matching a row records the disambiguation pin in effect at that moment")
+    public void matchRecordsPinInEffect() {
+        int pinnedId = uniqueSeriesId();
+        Map<String, String> disambig = new HashMap<>();
+        disambig.put(StringUtils.makeQueryString("the quiet ones"),
+                     String.valueOf(pinnedId));
+        prefs.setShowDisambiguationOverrides(disambig);
+
+        FileEpisode ep = parsedEpisode("the quiet ones");
+        ep.setEpisodeShow(Series.createSeries(pinnedId, "The Quiet Ones"));
+
+        assertEquals(String.valueOf(pinnedId), ep.getPinnedSeriesIdAtMatch());
+    }
+
+    @Test
+    @DisplayName("Matching a row with no pin in effect records no pin")
+    public void matchWithoutPinRecordsNull() {
+        FileEpisode ep = parsedEpisode("westmark academy");
+        ep.setEpisodeShow(Series.createSeries(uniqueSeriesId(), "Westmark Academy"));
+
+        assertNull(ep.getPinnedSeriesIdAtMatch());
     }
 }

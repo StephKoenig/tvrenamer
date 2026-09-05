@@ -25,6 +25,8 @@ final class ThemePalette {
     private final Color borderColor;
     private final Color tableHeaderBackground;
     private final Color tableHeaderForeground;
+    private final Color tableHeaderDisabledBackground;
+    private final Color tableHeaderDisabledForeground;
     private final Color tableRowAlternate;
     private final Color validationSuccessBackground;
     private final Color validationErrorBackground;
@@ -40,6 +42,11 @@ final class ThemePalette {
             borderColor = createColor(new RGB(70, 70, 70));
             tableHeaderBackground = createColor(new RGB(55, 55, 55));
             tableHeaderForeground = controlForeground;
+
+            // Sorting is disabled while a row is validating; the header is painted
+            // in a flatter, dimmer grey to show the column headers are not clickable.
+            tableHeaderDisabledBackground = createColor(new RGB(42, 42, 42));
+            tableHeaderDisabledForeground = createColor(new RGB(125, 125, 125));
 
             // Increase zebra striping contrast in dark mode: alternate rows should be
             // noticeably different from the base table background, but still subtle.
@@ -59,6 +66,10 @@ final class ThemePalette {
             borderColor = createColor(new RGB(200, 200, 200));
             tableHeaderBackground = createColor(new RGB(232, 232, 232));
             tableHeaderForeground = controlForeground;
+
+            // See dark-mode note above: a flatter, dimmer grey for the disabled state.
+            tableHeaderDisabledBackground = createColor(new RGB(212, 212, 212));
+            tableHeaderDisabledForeground = createColor(new RGB(140, 140, 140));
             tableRowAlternate = createColor(new RGB(248, 248, 248));
 
             // Subtle validation tints. In light mode these stay pale so the existing
@@ -104,6 +115,14 @@ final class ThemePalette {
 
     Color getTableHeaderForeground() {
         return tableHeaderForeground;
+    }
+
+    Color getTableHeaderDisabledBackground() {
+        return tableHeaderDisabledBackground;
+    }
+
+    Color getTableHeaderDisabledForeground() {
+        return tableHeaderDisabledForeground;
     }
 
     Color getTableRowAlternate() {

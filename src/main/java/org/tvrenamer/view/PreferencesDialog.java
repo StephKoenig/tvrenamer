@@ -5,7 +5,10 @@ import static org.tvrenamer.model.util.Constants.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1028,6 +1031,149 @@ class PreferencesDialog extends Dialog {
      * empty label reserves no vertical space. Only relayouts on an empty/non-empty
      * transition, which is infrequent (most hovered rows have no message).
      */
+    /**
+     * Full per-row state of a Matching table row.
+     *
+     * Sorting moves row *contents* between the existing TableItems rather than
+     * disposing and recreating them, because an in-flight validation callback
+     * holds a direct TableItem reference; recreating rows would strand it and
+     * leave the row showing the "validating" clock forever (which also blocks
+     * Save). Every piece of per-row state therefore has to travel together.
+     */
+    private static final class MatchingRow {
+
+        private final String[] cells;
+        private final org.eclipse.swt.graphics.Image icon;
+        private final Object dirty;
+        private final Object message;
+        private final Object token;
+
+        private MatchingRow(final TableItem ti, final int columnCount) {
+            cells = new String[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                cells[i] = ti.getText(i);
+            }
+            icon = ti.getImage(0);
+            dirty = ti.getData(MATCHING_DIRTY_KEY);
+            message = ti.getData(MATCHING_VALIDATION_MESSAGE_KEY);
+            token = ti.getData(MATCHING_VALIDATE_TOKEN_KEY);
+        }
+
+        private void writeTo(final TableItem ti) {
+            ti.setText(cells);
+            ti.setImage(0, icon);
+            ti.setData(MATCHING_DIRTY_KEY, dirty);
+            ti.setData(MATCHING_VALIDATION_MESSAGE_KEY, message);
+            ti.setData(MATCHING_VALIDATE_TOKEN_KEY, token);
+        }
+    }
+
+    /**
+     * @return true if any row of the given table is currently being validated
+     */
+    private boolean anyRowValidating(final Table table) {
+        if (table == null || table.isDisposed()) {
+            return false;
+        }
+        for (TableItem ti : table.getItems()) {
+            if (ti.getImage(0) == MATCHING_ICON_VALIDATING) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Paint a Matching table's header to reflect whether sorting is currently
+     * available. SWT colours the whole header row (there is no per-column
+     * header colour), which suits us: sorting is disabled for the entire table
+     * while any of its rows is validating.
+     */
+    private void updateMatchingHeaderState(final Table table) {
+        if (table == null || table.isDisposed() || themePalette == null) {
+            return;
+        }
+        final boolean disabled = anyRowValidating(table);
+        table.setHeaderBackground(
+            disabled
+                ? themePalette.getTableHeaderDisabledBackground()
+                : themePalette.getTableHeaderBackground()
+        );
+        table.setHeaderForeground(
+            disabled
+                ? themePalette.getTableHeaderDisabledForeground()
+                : themePalette.getTableHeaderForeground()
+        );
+    }
+
+    /** Refresh the sortable/disabled header styling of both Matching tables. */
+    private void refreshMatchingHeaderStates() {
+        updateMatchingHeaderState(overridesTable);
+        updateMatchingHeaderState(disambiguationsTable);
+    }
+
+    /**
+     * Make the given value columns sort their table when their header is
+     * clicked. Clicks are ignored while the table has a row validating.
+     */
+    private void makeMatchingTableSortable(
+        final Table table,
+        final TableColumn... columns
+    ) {
+        for (final TableColumn column : columns) {
+            column.addListener(SWT.Selection, e -> {
+                if (anyRowValidating(table)) {
+                    // Deliberately a no-op: the greyed header signals why.
+                    return;
+                }
+                sortMatchingTable(table, column);
+            });
+        }
+        updateMatchingHeaderState(table);
+    }
+
+    /**
+     * Sort a Matching table by the given column, toggling direction when the
+     * same column is clicked again.
+     */
+    private void sortMatchingTable(final Table table, final TableColumn column) {
+        if (table == null || table.isDisposed()) {
+            return;
+        }
+        final int columnIndex = table.indexOf(column);
+        if (columnIndex < 0) {
+            return;
+        }
+
+        boolean ascending = true;
+        if (table.getSortColumn() == column) {
+            ascending = table.getSortDirection() != SWT.UP;
+        }
+
+        final int columnCount = table.getColumnCount();
+        final TableItem[] items = table.getItems();
+        final List<MatchingRow> rows = new ArrayList<>(items.length);
+        for (TableItem ti : items) {
+            rows.add(new MatchingRow(ti, columnCount));
+        }
+
+        final Comparator<String[]> cellOrder = MatchingTableSorter.byColumn(
+            columnIndex,
+            ascending
+        );
+        rows.sort((a, b) -> cellOrder.compare(a.cells, b.cells));
+
+        for (int i = 0; i < items.length; i++) {
+            rows.get(i).writeTo(items[i]);
+        }
+
+        table.setSortColumn(column);
+        table.setSortDirection(ascending ? SWT.UP : SWT.DOWN);
+        // The selection index now refers to a different row; clearing it avoids
+        // silently loading unrelated values into the edit fields.
+        table.deselectAll();
+    }
+
     private void setMatchingHoverTip(final Label label, final String text) {
         if (label == null || label.isDisposed()) {
             return;
@@ -1670,6 +1816,9 @@ class PreferencesDialog extends Dialog {
         TableColumn oColTo = new TableColumn(overridesTable, SWT.LEFT);
         oColTo.setText("Replace with");
 
+        // Click either value header to sort; ignored while a row is validating.
+        makeMatchingTableSortable(overridesTable, oColFrom, oColTo);
+
         // Populate table from prefs (not dirty; treat as OK by default).
         for (Map.Entry<String, String> e : prefs
             .getShowNameOverrides()
@@ -1931,6 +2080,9 @@ class PreferencesDialog extends Dialog {
         dColQuery.setText("Query string");
         TableColumn dColId = new TableColumn(disambiguationsTable, SWT.LEFT);
         dColId.setText("Series ID");
+
+        // Click either value header to sort; ignored while a row is validating.
+        makeMatchingTableSortable(disambiguationsTable, dColQuery, dColId);
 
         // Populate table from prefs (not dirty; treat as OK by default).
         for (Map.Entry<String, String> e : prefs
@@ -2304,7 +2456,6 @@ class PreferencesDialog extends Dialog {
                 }
             }
         }
-        prefs.setShowNameOverrides(overrides);
 
         // Show disambiguations (query string -> series id)
         // Note: column 0 is the status icon column; values are in columns 1 and 2.
@@ -2320,7 +2471,10 @@ class PreferencesDialog extends Dialog {
                 }
             }
         }
-        prefs.setShowDisambiguationOverrides(disambiguations);
+        // Apply both Matching maps together so a single preference-change event
+        // fires after both are current (a per-map event would re-match against a
+        // half-updated state), and only when something actually changed.
+        prefs.setMatchingOverrides(overrides, disambiguations);
 
         UserPreferences.store(prefs);
         return true;
@@ -2338,6 +2492,7 @@ class PreferencesDialog extends Dialog {
     }
 
     private void updateSaveEnabledFromMatchingValidation() {
+        refreshMatchingHeaderStates();
         if (saveButton == null || saveButton.isDisposed()) {
             return;
         }
@@ -2645,6 +2800,8 @@ class PreferencesDialog extends Dialog {
         // initial label
         ti.setText(0, "");
         ti.setImage(0, MATCHING_ICON_VALIDATING);
+        // This row is now validating, so sorting is unavailable: grey the header.
+        updateMatchingHeaderState(table);
 
         Display display = table.getDisplay();
         display.timerExec(

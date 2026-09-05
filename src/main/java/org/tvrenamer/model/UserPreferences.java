@@ -388,11 +388,45 @@ public class UserPreferences {
      * @param overrides mapping of extracted name -> corrected name
      */
     public void setShowNameOverrides(final Map<String, String> overrides) {
-        showNameOverrides.clear();
-        if (overrides != null) {
-            showNameOverrides.putAll(overrides);
+        if (applyShowNameOverrides(overrides)) {
+            preferenceChanged(UserPreference.SHOW_NAME_OVERRIDES);
         }
-        preferenceChanged(UserPreference.SHOW_NAME_OVERRIDES);
+    }
+
+    /**
+     * Replace the show-name override map without firing a preference change.
+     *
+     * @param overrides the incoming map, or null to clear
+     * @return true if the stored map actually changed
+     */
+    private boolean applyShowNameOverrides(final Map<String, String> overrides) {
+        Map<String, String> incoming =
+            (overrides == null) ? Map.of() : overrides;
+        if (showNameOverrides.equals(incoming)) {
+            return false;
+        }
+        showNameOverrides.clear();
+        showNameOverrides.putAll(incoming);
+        return true;
+    }
+
+    /**
+     * Replace the disambiguation map without firing a preference change.
+     *
+     * @param overrides the incoming map, or null to clear
+     * @return true if the stored map actually changed
+     */
+    private boolean applyShowDisambiguationOverrides(
+        final Map<String, String> overrides
+    ) {
+        Map<String, String> incoming =
+            (overrides == null) ? Map.of() : overrides;
+        if (showDisambiguationOverrides.equals(incoming)) {
+            return false;
+        }
+        showDisambiguationOverrides.clear();
+        showDisambiguationOverrides.putAll(incoming);
+        return true;
     }
 
     /**
@@ -412,12 +446,28 @@ public class UserPreferences {
     public void setShowDisambiguationOverrides(
         final Map<String, String> overrides
     ) {
-        showDisambiguationOverrides.clear();
-        if (overrides != null) {
-            showDisambiguationOverrides.putAll(overrides);
+        if (applyShowDisambiguationOverrides(overrides)) {
+            // No dedicated preference enum yet; treat as a show override change.
+            preferenceChanged(UserPreference.SHOW_NAME_OVERRIDES);
         }
-        // No dedicated preference enum yet; treat as show override change for refresh purposes.
-        preferenceChanged(UserPreference.SHOW_NAME_OVERRIDES);
+    }
+
+    /**
+     * Replace both Matching preference maps in one operation.
+     *
+     * @param overrides       mapping of extracted name -> corrected name
+     * @param disambiguations mapping of query string -> chosen provider series id
+     */
+    public void setMatchingOverrides(
+        final Map<String, String> overrides,
+        final Map<String, String> disambiguations
+    ) {
+        boolean changed = applyShowNameOverrides(overrides);
+        // Deliberately evaluated before the OR so both maps are always applied.
+        changed = applyShowDisambiguationOverrides(disambiguations) || changed;
+        if (changed) {
+            preferenceChanged(UserPreference.SHOW_NAME_OVERRIDES);
+        }
     }
 
     /**

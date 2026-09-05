@@ -122,6 +122,11 @@ public class FileEpisode {
 
     private String filenameShow = "";
 
+    // The disambiguation pin (provider series id) in effect when this row was
+    // matched, or null if the match was not pinned. Needed to detect that a pin has
+    // since been REMOVED, which comparing resolved ids alone cannot see.
+    private String pinnedSeriesIdAtMatch = null;
+
     private String filenameResolution = "";
 
     // These integers are meant to represent the indices into the Show's catalog
@@ -269,6 +274,20 @@ public class FileEpisode {
      */
     public void setFilenameShow(String filenameShow) {
         this.filenameShow = filenameShow;
+    }
+
+    /**
+     * @return the disambiguation pin in effect when this row was matched, or null
+     */
+    public String getPinnedSeriesIdAtMatch() {
+        return pinnedSeriesIdAtMatch;
+    }
+
+    /**
+     * @param seriesId the disambiguation pin in effect at match time, or null if unpinned
+     */
+    public void setPinnedSeriesIdAtMatch(String seriesId) {
+        this.pinnedSeriesIdAtMatch = seriesId;
     }
 
     /**
@@ -710,7 +729,9 @@ public class FileEpisode {
                 (actualShow == null) ? null : actualShow.getIdString();
             return !pinnedId.equals(currentId);
         }
-        return false;
+        // The pin that produced this match has since been removed, so a fresh
+        // lookup could now resolve to a different series.
+        return pinnedSeriesIdAtMatch != null;
     }
 
     private String getShowNamePlaceholder() {
@@ -778,6 +799,11 @@ public class FileEpisode {
             seriesStatus = SeriesStatus.GOT_SHOW;
             replacementText = getShowNamePlaceholder();
         }
+        // Remember which disambiguation pin (if any) was in effect for this match,
+        // so that later REMOVAL of that pin can be recognised as a reason to re-match.
+        pinnedSeriesIdAtMatch = userPrefs.resolveDisambiguatedSeriesId(
+            StringUtils.makeQueryString(filenameShow)
+        );
     }
 
     /**
